@@ -8,11 +8,11 @@ from pathlib import Path
 import shutil
 
 from sync import ROOT, href, load, save
+from apply_followup import LEVELS, PRIMARY, REVIEWED, SIGNAL, merge_followups
 
-REVIEWED = "source_reviewed"
-SIGNAL = "abstract_signal"
 STATUS = {
     REVIEWED: "Source reviewed",
+    PRIMARY: "Primary abstract evidence",
     SIGNAL: "Abstract signals available",
     "abstract_no_signal": "Abstract checked, no tag signal",
     "abstract_missing": "Paper listed, abstract unavailable",
@@ -49,7 +49,7 @@ def make_catalog(faculty, works, authors, evidence, taxonomy):
     for mark in evidence:
         require(mark["paper_id"] in works and mark["tag"] in tags and href(mark["source"]),
                 f"Broken evidence record: {mark}")
-        require(mark["level"] in (REVIEWED, SIGNAL), f"Invalid evidence level: {mark}")
+        require(mark["level"] in LEVELS, f"Invalid evidence level: {mark}")
         by_work[mark["paper_id"]].append(mark)
     pairs = set()
     for link in authors:
@@ -61,25 +61,29 @@ def make_catalog(faculty, works, authors, evidence, taxonomy):
     summaries = {}
     detail = {}
     for pid, person in faculty.items():
-        papers, profile_tags, tag_counts, latest = [], {}, {REVIEWED: Counter(), SIGNAL: Counter()}, {}
+        papers, profile_tags, tag_counts, latest = [], {}, {level: Counter() for level in LEVELS}, {}
         links = people[pid]
         indexed = reviewed_count = 0
         for link in links:
             paper = works[link["paper_id"]]
             identity = link["identity"]
             allowed = set()
-            if identity in ("upstream_byline_agrees", "orcid_agrees", REVIEWED) and not paper["retracted"]:
+            if identity in ("upstream_byline_agrees", "orcid_agrees", "faculty_listing", REVIEWED) and not paper["retracted"]:
                 indexed += paper["abstract_status"] == "indexed"
-                allowed.add(SIGNAL)
+                allowed.update((SIGNAL, PRIMARY))
                 if identity == REVIEWED:
                     allowed.add(REVIEWED)
-            marks = [mark for mark in by_work[paper["id"]] if mark["level"] in allowed]
+            marks = [mark for mark in by_work[paper["id"]] if mark["level"] in allowed and
+                     mark.get("person_id", pid) == pid]
             if any(mark["level"] == REVIEWED for mark in marks):
                 reviewed_count += 1
                 # The curator's scope for a reviewed paper is the source of
                 # truth. Automatic suggestions cannot add extra public tags.
                 marks = [mark for mark in marks if mark["level"] == REVIEWED]
-            for level in (REVIEWED, SIGNAL):
+            else:
+                verified_tags = {mark["tag"] for mark in marks if mark["level"] == PRIMARY}
+                marks = [mark for mark in marks if mark["level"] == PRIMARY or mark["tag"] not in verified_tags]
+            for level in LEVELS:
                 matched = sorted({mark["tag"] for mark in marks if mark["level"] == level})
                 tag_counts[level].update(matched)
                 for tag in matched:
@@ -87,11 +91,14 @@ def make_catalog(faculty, works, authors, evidence, taxonomy):
             if marks:
                 profile_tags[paper["id"]] = {
                     level: sorted({mark["tag"] for mark in marks if mark["level"] == level})
-                    for level in (REVIEWED, SIGNAL)}
-            papers.append({**paper, "authorship": identity, "evidence": marks})
+                    for level in LEVELS}
+            papers.append({**paper, "authorship": identity, "evidence": marks,
+                           "listing_url": link.get("listing_url")})
         status = "no_papers"
         if tag_counts[REVIEWED]:
             status = REVIEWED
+        elif tag_counts[PRIMARY]:
+            status = PRIMARY
         elif tag_counts[SIGNAL]:
             status = SIGNAL
         elif indexed:
@@ -129,8 +136,9 @@ def audit(people, faculty, metadata):
             "status": Counter(row["status"] for row in people.values()),
             "coverage": {
                 "faculty_with_papers": sum(bool(p["paper_count"]) for p in people.values()),
-                "faculty_with_orcid_papers_only": sum(not p["upstream_paper_count"] and bool(p["paper_count"])
-                                                      for p in people.values()),
+                "faculty_with_orcid_papers_only": sum(not faculty[pid]["upstream_paper_count"]
+                    and p["paper_count"] and (faculty[pid].get("followup") or {}).get("state") != "papers_found"
+                    for pid, p in people.items()),
                 "faculty_with_abstracts": sum(bool(p["abstracts_checked"]) for p in people.values()),
                 "faculty_with_reviewed_papers": sum(bool(p["source_reviewed_count"]) for p in people.values()),
                 "authorship_pairs": sum(p["paper_count"] for p in people.values()),
@@ -157,8 +165,11 @@ def build(out):
         require(all(k == row["id"] for k, row in rows.items()), f"Invalid {key} IDs")
     require(not (metadata.get("live_index_check") or {}).get("id_or_scope_differences"),
             "The roster differs from the live index. Review the snapshot before publishing.")
+    followup, check_rows = merge_followups(faculty, works, authors, evidence, taxonomy)
     summary, detail = make_catalog(faculty, works, authors, evidence, taxonomy)
     report = audit(summary, faculty, metadata)
+    if followup:
+        report["followup"] = followup
     for filename in ("index.html", "app.js", "style.css", "filters.js"):
         out.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / "site" / filename, out / filename)
@@ -175,6 +186,8 @@ def build(out):
                        ("papers", list(works.values())), ("authorships", authors), ("evidence", evidence)):
         export(downloads, name, rows)
     save(downloads / "coverage.json", report)
+    if check_rows:
+        export(downloads, "followup", check_rows)
     (out / ".nojekyll").touch()
     print(json.dumps({"total": report["faculty_total"], "schools": report["schools_total"],
                       "scope": report["scope"], "status": report["status"],

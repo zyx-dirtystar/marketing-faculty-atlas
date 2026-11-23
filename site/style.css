@@ -72,10 +72,12 @@ td small { display: block; margin-top: 3px; }
 .tag:hover { text-decoration: underline; }
 .tag.abstract_signal { color: var(--signal); background: #f3f6f8; }
 .tag.source_reviewed { color: var(--forest); border-color: #c5decc; background: #e9f5eb; }
+.tag.primary_abstract { color: #34543b; border-color: #c9ddcc; background: #f0f6ea; }
 .more { font-size: .8rem; }
 .state { display: inline-block; color: var(--muted); border-radius: 5px; font-size: .82rem; font-weight: 600; }
 .state.source_reviewed { color: #1b6348; }
 .state.abstract_signal { color: #37566a; }
+.state.primary_abstract { color: #34543b; }
 .pagination { margin: 18px 0; display: flex; gap: 18px; }
 .breadcrumb { margin: 24px 0 14px; font-size: .93rem; color: var(--muted); }
 .profile-head { margin: 26px 0; }

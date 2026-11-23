@@ -2,8 +2,11 @@ import { matchingPeople } from "./filters.js";
 
 const app = document.getElementById("app");
 const reviewed = "source_reviewed";
+const primaryAbstract = "primary_abstract";
 const signal = "abstract_signal";
-const evidenceLabels = { [reviewed]: "Source reviewed", [signal]: "Abstract signal" };
+const evidenceLabels = { [reviewed]: "Source reviewed", [primaryAbstract]: "Primary abstract evidence",
+  [signal]: "Abstract signal" };
+const levels = Object.keys(evidenceLabels);
 const roleLabels = { pub: "Publication", rr: "Revise & resubmit", wp: "Working paper" };
 const navState = { request: 0 };
 const schoolCache = new Map();
@@ -33,12 +36,17 @@ function select(name, caption, options, selected) {
 }
 
 function tagsFor(person) {
-  const tags = { ...person.counts[signal], ...person.counts[reviewed] };
-  return Object.keys(tags).sort((a, b) =>
-    (person.counts[reviewed][b] || 0) - (person.counts[reviewed][a] || 0) ||
-    ((person.counts[signal][b] || 0) - (person.counts[signal][a] || 0)) ||
-    label[a].localeCompare(label[b]));
+  const tags = new Set(levels.flatMap((level) => Object.keys(person.counts[level])));
+  return [...tags].sort((a, b) => {
+    for (const level of levels) {
+      const difference = (person.counts[level][b] || 0) - (person.counts[level][a] || 0);
+      if (difference) return difference;
+    }
+    return label[a].localeCompare(label[b]);
+  });
 }
+
+const bestLevel = (person, tag) => levels.find((level) => person.counts[level][tag]);
 
 function tagButton(tag, level, target) {
   return `<a class="tag ${level}" href="${escape(target)}">${escape(label[tag])}</a>`;
@@ -68,6 +76,7 @@ function atlasDirectory(params) {
       <dl class="stats">
         <div><dt>Faculty</dt><dd>${format(data.audit.faculty_total)}</dd></div>
         <div><dt>Source reviewed</dt><dd>${format(checked)}</dd></div>
+        <div><dt>Primary abstract</dt><dd>${format(data.audit.status[primaryAbstract])}</dd></div>
         <div><dt>Abstract signals only</dt><dd>${format(withSignals)}</dd></div>
       </dl>
     </section>
@@ -91,7 +100,7 @@ function atlasDirectory(params) {
           </div>
         </details>
         <div class="refine">
-          ${select("level", "Evidence", [["", "Source reviews and abstract signals"], ...Object.entries(evidenceLabels)], filters.level)}
+          ${select("level", "Evidence", [["", "All evidence levels"], ...Object.entries(evidenceLabels)], filters.level)}
           <label class="check"><input name="together" type="checkbox" value="1"${filters.together ? " checked" : ""}> Match tags on the same paper</label>
           <label class="check"><input name="repeat" type="checkbox" value="2"${filters.repeat ? " checked" : ""}> At least two papers</label>
           <button type="submit">Apply filters</button>
@@ -110,7 +119,7 @@ function atlasDirectory(params) {
       <td><a class="person-name" href="${dest}">${escape(person.name)}</a><small>${escape(person.rank)}</small></td>
       <td>${escape(data.schools[person.school].short)}<small>${escape(person.unit)}</small></td>
       <td>${person.primary_fields.filter((s) => s.startsWith("Marketing:")).map((s) => escape(s.slice(11))).join("<br>")}</td>
-      <td><div class="tags">${tags.slice(0, 4).map((tag) => tagButton(tag, person.counts[reviewed][tag] ? reviewed : signal, dest + "?tag=" + encodeURIComponent(tag))).join("")}
+      <td><div class="tags">${tags.slice(0, 4).map((tag) => tagButton(tag, bestLevel(person, tag), dest + "?tag=" + encodeURIComponent(tag))).join("")}
       ${tags.length > 4 ? `<a class="more" href="${dest}">+${tags.length - 4}</a>` : ""}</div></td>
       <td>${status(person)}<small>${format(person.abstracts_checked)} indexed abstracts · ${format(person.paper_count)} listed works</small></td>
     </tr>`;
@@ -146,6 +155,7 @@ function paperCard(paper, tag) {
   const status = [
     paper.year, roleLabels[paper.status], paper.venue,
     paper.discovery === "openalex_exact_orcid" ? "OpenAlex · exact ORCID" : "",
+    paper.listing_url ? "Faculty publication source" : "",
     paper.retracted ? "Retracted" : "",
     paper.authorship === "review_needed" ? "Authorship needs review" : "",
   ].filter(Boolean).join(" · ");
@@ -153,6 +163,7 @@ function paperCard(paper, tag) {
     <small>${escape(status)}</small>
     <h3>${link(paper.url, paper.title) || escape(paper.title)}</h3>
     <p class="authors">${escape(paper.authors.join(", "))}</p>
+    ${paper.listing_url ? `<small>${link(paper.listing_url, "Publication listing or CV")}</small>` : ""}
     ${marks.length ? `<details${tag ? " open" : ""}><summary>${marks.length} evidence entries</summary><ul class="evidence">${marks.map(evidenceRow).join("")}</ul></details>` : ""}
     ${paper.versions.length > 1 ? `<details><summary>${paper.versions.length} source records</summary><ul>${paper.versions.map((v) =>
     `<li>${escape(v.year)} ${escape(roleLabels[v.status])} · ${link(v.url, v.title) || escape(v.title)}</li>`).join("")}</ul></details>` : ""}
@@ -201,12 +212,13 @@ async function profile(id, params, request) {
     if (!sectionTags.length) return "";
     return `<h3 class="group-label">${escape(dimension)}</h3>
       <ul class="tag-list">${sectionTags.map((item) => `<li>
-        ${tagButton(item, person.counts[reviewed][item] ? reviewed : signal, path + "?tag=" + encodeURIComponent(item))}
-        <small>${format(person.counts[reviewed][item])} reviewed · ${format(person.counts[signal][item])} signals
+        ${tagButton(item, bestLevel(person, item), path + "?tag=" + encodeURIComponent(item))}
+        <small>${format(person.counts[reviewed][item])} reviewed · ${format(person.counts[primaryAbstract][item])} primary abstracts · ${format(person.counts[signal][item])} signals
           ${person.latest[item] ? " · " + person.latest[item] : ""}</small>
       </li>`).join("")}</ul>`;
   }).join("")}
         ${person.education.length ? `<details><summary>Education</summary><ul>${person.education.map((item) => `<li>${escape(item.degree.toUpperCase())} · ${escape(item.institution)} ${escape(item.year)} ${escape(item.field)}</li>`).join("")}</ul></details>` : ""}
+        ${followupPanel(person.followup)}
         ${placement ? `<details><summary>Placement project cross-check</summary><p>${placement.state === "shared_profile_url" ? "Shared identifier and concordant name" : "Identity review needed"}</p><ul>${placement.candidates.map((item) => `<li>${link(item.profile_url, item.name) || escape(item.name)} · ${escape(item.institution)} · ${escape(item.checked_at)}<small>${escape(item.tracks.join(", "))}${item.institution_name_differs ? " · Institution names differ" : ""}</small></li>`).join("")}</ul></details>` : ""}
       </section>
       <section>
@@ -214,6 +226,20 @@ async function profile(id, params, request) {
         ${papers.map((paper) => paperCard(paper, tag)).join("") || "<p>No papers available for this view.</p>"}
       </section>
     </div>`;
+}
+
+function followupPanel(row) {
+  if (!row) return "";
+  if (row.cohort === "method_review") {
+    return `<details><summary>Follow-up paper checks</summary>
+      <p>${format(row.papers_checked)} of ${format(row.papers_queued)} queued papers checked.</p></details>`;
+  }
+  const sourceStates = { identity_checked: "Profile or CV read", identity_unconfirmed: "Identity needs review",
+    connection_error: "Connection failed", pdf_text_unavailable: "PDF text unavailable" };
+  return `<details><summary>Follow-up publication search</summary>
+    <p>${row.checked_at ? `${format(row.papers_found)} linked works found · ${escape(row.checked_at)}` : "Search pending"}</p>
+    ${row.sources.length ? `<ul>${row.sources.map((item) => `<li>${link(item.url, item.role.replaceAll("_", " "))}
+      · ${escape(sourceStates[item.status] || item.status.replaceAll("_", " "))}</li>`).join("")}</ul>` : ""}</details>`;
 }
 
 function coverage() {
@@ -232,6 +258,16 @@ function coverage() {
       ${format(report.placement.institution_name_differences)} matches or leads have institution names that differ in the sources.</p>
       <p>${link(report.upstream + "/commit/" + report.upstream_commit, "Pinned Econ Atlas commit")} · ${report.live_index_check ? `Live index cross-check ${format(report.live_index_check.id_or_scope_differences.length)} differences` : "Live index cross-check unavailable"}</p>
     </section>
+    ${report.followup ? `<section class="panel coverage">
+      <h2>Follow-up research</h2>
+      <p>${format(report.followup.method_faculty_attempted)} of ${format(report.followup.method_cohort)} faculty with method leads have at least one paper checked.
+      ${format(report.followup.method_faculty_all_queued_papers_checked)} have results for every queued paper.</p>
+      <p>${format(report.followup.method_faculty_with_manual_evidence)} faculty have a source review and
+      ${format(report.followup.method_faculty_with_primary_abstract_only)} more have methods documented in a primary abstract.</p>
+      <p>${format(report.followup.publication_faculty_attempted)} of ${format(report.followup.publication_cohort)} publication searches logged.
+      ${format(report.followup.publication_faculty_with_papers)} faculty have linked works from this follow-up.</p>
+      <p><a href="download/followup.csv">Follow-up CSV</a> · <a href="download/followup.json">Follow-up JSON</a></p>
+    </section>` : ""}
     <section class="panel coverage">
       <h2>Download data</h2>
       <div class="downloads">${["faculty", "papers", "authorships", "evidence"].map((name) => `<div>
@@ -245,10 +281,10 @@ function coverage() {
     Object.entries(report.track),
     Object.entries(report.school).map(([key, row]) => [data.schools[key].name, row]).sort((a, b) => a[0].localeCompare(b[0]))
   ].map((rows) => `<div class="table-frame audit-table"><table><thead>
-        <tr><th>Group</th><th>Faculty</th><th>Source reviewed</th><th>Abstract signals only</th><th>Without labels</th></tr>
+        <tr><th>Group</th><th>Faculty</th><th>Source reviewed</th><th>Primary abstract</th><th>Abstract signals only</th><th>Without labels</th></tr>
         </thead><tbody>${rows.map(([name, row]) => `<tr><td>${escape(name)}</td>
-          <td>${count(row, "total")}</td><td>${count(row, reviewed)}</td><td>${count(row, signal)}</td>
-          <td>${format(row.total - (row[reviewed] || 0) - (row[signal] || 0))}</td></tr>`).join("")}</tbody></table></div>`).join("")}
+          <td>${count(row, "total")}</td><td>${count(row, reviewed)}</td><td>${count(row, primaryAbstract)}</td><td>${count(row, signal)}</td>
+          <td>${format(row.total - levels.reduce((sum, level) => sum + (row[level] || 0), 0))}</td></tr>`).join("")}</tbody></table></div>`).join("")}
     </section>`;
 }
 

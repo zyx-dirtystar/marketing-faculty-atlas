@@ -1,0 +1,124 @@
+"""Join fixed-cohort research batches into an in-memory, validated release."""
+
+from collections import Counter, defaultdict
+
+from sync import ROOT, href, load
+
+REVIEWED = "source_reviewed"
+PRIMARY = "primary_abstract"
+SIGNAL = "abstract_signal"
+LEVELS = (REVIEWED, PRIMARY, SIGNAL)
+
+
+def check(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def merge_followups(faculty, works, authors, evidence, taxonomy):
+    directory = ROOT / "data/followup"
+    cohorts_path = directory / "cohorts.json"
+    if not cohorts_path.exists():
+        return {}, []
+    cohort = load(cohorts_path)
+    methods = cohort["method_review"]
+    missing = set(cohort["publication_search"])
+    queue = set(cohort["paper_queue"])
+    check(len(methods) == 777 and len(missing) == 469 and not missing.intersection(methods),
+          "The frozen follow-up cohorts changed")
+    check((set(methods) | missing) <= set(faculty) and queue <= set(works), "Follow-up sources changed")
+    links = {(row["person_id"], row["paper_id"]): row for row in authors}
+    by_person = defaultdict(dict)
+    checks, searches, tested = {}, {}, {}
+    batches = []
+    tags = {tag for group in taxonomy.values() for tag in group}
+
+    for path in sorted(directory.glob("batch-*.json")):
+        batch = load(path)
+        date = batch["checked_at"]
+        batches.append({"id": path.stem, "checked_at": date, "summary": batch["summary"]})
+        for item in batch.get("papers", []):
+            wid = item["paper_id"]
+            check(wid in queue, f"Paper outside fixed cohort: {wid}")
+            checks[wid] = {"paper_id": wid, "state": item["state"], "source": item.get("source"),
+                           "checked_at": date, "batch": path.stem}
+        for row in batch.get("publications", []):
+            pid = row["person_id"]
+            title = row["title"]
+            wid = "doi:" + row["doi"]
+            check(pid in missing and href(row["listing_url"]) and href(row["verification_url"]),
+                  f"Unverifiable discovered publication: {pid} / {wid}")
+            paper = works.setdefault(wid, {
+                "id": wid, "title": title, "year": row["year"], "authors": row["authors"],
+                "doi": row["doi"], "venue": row["venue"], "url": "https://doi.org/" + row["doi"],
+                "status": row["status"], "versions": [], "discovery": "faculty_publications",
+                "abstract_status": "unavailable", "openalex_url": "", "retracted": False,
+            })
+            if paper["retracted"]:
+                continue
+            if (pid, wid) not in links:
+                link = {"person_id": pid, "paper_id": wid, "identity": "faculty_listing",
+                        "upstream_statuses": []}
+                authors.append(link)
+                links[pid, wid] = link
+            links[pid, wid].update({"listing_url": row["listing_url"],
+                                    "verification_url": row["verification_url"],
+                                    "followup_batch": path.stem})
+        for row in batch.get("faculty", []):
+            pid = row["person_id"]
+            check(pid in missing, f"Publication search outside fixed cohort: {pid}")
+            searches[pid] = {**row, "batch": path.stem, "checked_at": date}
+        for mark in batch.get("evidence", []):
+            wid, pid = mark["paper_id"], mark["person_id"]
+            level = mark["level"]
+            check(pid in methods or pid in missing, f"Unknown follow-up person {pid}")
+            check((pid, wid) in links and links[pid, wid]["identity"] != "review_needed"
+                  and not works[wid]["retracted"], f"Invalid follow-up evidence: {pid} / {wid}")
+            check(level in (REVIEWED, PRIMARY) and mark["tag"] in tags and href(mark["source"]),
+                  f"Invalid follow-up annotation: {mark}")
+            if level == REVIEWED:
+                links[pid, wid]["identity"] = REVIEWED
+            tested[pid, wid, mark["tag"], level] = {**mark, "checked_at": date, "batch": path.stem}
+        for decision in batch.get("author_checks", []):
+            pid, wid = decision["person_id"], decision["paper_id"]
+            check(pid in methods and wid in methods[pid], f"Invalid byline check: {pid} / {wid}")
+            by_person[pid][wid] = decision["state"]
+
+    evidence.extend(tested.values())
+    reviewed_people = {pid for pid, _, _, level in tested if level == REVIEWED}
+    primary_people = {pid for pid, _, _, level in tested if level == PRIMARY}
+    publication_counts = Counter(pid for (pid, _), link in links.items() if "followup_batch" in link)
+    rows = []
+    for pid, papers in methods.items():
+        complete = sum(wid in checks for wid in papers)
+        row = {"person_id": pid, "cohort": "method_review", "papers_queued": len(papers),
+               "papers_checked": complete, "byline_checks": Counter(by_person[pid].values()),
+               "state": ("source_reviewed" if pid in reviewed_people else
+                         "primary_abstract" if pid in primary_people else
+                         "sources_checked" if complete == len(papers) else
+                         "in_progress" if complete else "pending")}
+        rows.append(row)
+        faculty[pid]["followup"] = row
+    for pid in sorted(missing):
+        search = searches.get(pid, {})
+        row = {"person_id": pid, "cohort": "publication_search",
+               "state": ("papers_found" if publication_counts[pid] else
+                         search.get("state", "pending")), "papers_found": publication_counts[pid],
+               "sources": search.get("sources", []), "checked_at": search.get("checked_at"),
+               "batch": search.get("batch")}
+        rows.append(row)
+        faculty[pid]["followup"] = row
+    return {
+        "baseline": cohort["baseline"], "batches": batches,
+        "method_cohort": len(methods), "publication_cohort": len(missing),
+        "queued_works": len(queue), "works_checked": len(checks),
+        "paper_outcomes": Counter(row["state"] for row in checks.values()),
+        "method_faculty_attempted": sum(any(wid in checks for wid in papers) for papers in methods.values()),
+        "method_faculty_all_queued_papers_checked": sum(all(wid in checks for wid in papers) for papers in methods.values()),
+        "method_faculty_with_manual_evidence": len(reviewed_people & set(methods)),
+        "method_faculty_with_primary_abstract_only": len((primary_people - reviewed_people) & set(methods)),
+        "publication_faculty_attempted": len(searches),
+        "publication_faculty_with_papers": len(publication_counts),
+        "publication_faculty_outcomes": Counter(row["state"] for row in rows if row["cohort"] == "publication_search"),
+        "publication_links_found": sum(publication_counts.values()),
+    }, rows + list(checks.values())
