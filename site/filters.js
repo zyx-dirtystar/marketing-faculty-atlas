@@ -2,7 +2,7 @@ export function matchingPeople(people, filters) {
   const terms = (filters.q || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
   const tags = [...new Set(["topic", "method", "design", "objective", "identification"]
     .map((key) => filters[key]).filter(Boolean))];
-  const levels = filters.level ? [filters.level] : ["source_reviewed", "primary_abstract", "abstract_signal"];
+  const levels = filters.level ? [filters.level] : ["source_reviewed", "primary_fulltext", "primary_abstract", "abstract_signal"];
   const minimum = filters.repeat === "2" ? 2 : 1;
 
   return people.filter((person) => {

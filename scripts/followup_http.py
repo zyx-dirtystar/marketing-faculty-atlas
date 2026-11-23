@@ -3,12 +3,13 @@
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html import unescape
+from http.client import HTTPException
 import json
 import re
 import threading
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 USER_AGENT = "MarketingFacultyAtlas/2.0 (+https://github.com/zyx-dirtystar/marketing-faculty-atlas)"
@@ -20,9 +21,12 @@ class Network:
         self.ready_at = defaultdict(float)
 
     def get(self, url, accept="", limit=2_000_000):
-        host = urlsplit(url).hostname
-        if urlsplit(url).scheme not in {"http", "https"} or not host:
+        parsed = urlsplit(url)
+        host = parsed.hostname
+        if parsed.scheme not in {"http", "https"} or not host:
             return {"status": "invalid_url", "url": url}, b""
+        url = urlunsplit(parsed._replace(path=quote(parsed.path, safe="/:@!$&'()*+,;=-._~%"),
+                                       query=quote(parsed.query, safe="/?:@!$&'()*+,;=-._~%[]")))
         spacing = .25 if host == "api.crossref.org" else .5
         with self.lock:
             now = time.monotonic()
@@ -46,7 +50,7 @@ class Network:
                 with self.lock:
                     self.ready_at[host] = time.monotonic() + (min(int(retry), 60) if retry.isdigit() else 20)
             return {"status": f"http_{error.code}", "url": error.geturl()}, b""
-        except (URLError, ValueError, TimeoutError, OSError):
+        except (URLError, ValueError, TimeoutError, OSError, HTTPException):
             return {"status": "connection_error", "url": url}, b""
 
     def crossref(self, doi):

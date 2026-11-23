@@ -2,6 +2,7 @@
 
 import argparse
 from collections import Counter, defaultdict
+import hashlib
 from pathlib import Path
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -10,7 +11,7 @@ from apply_followup import PRIMARY
 from followup_http import cache_rows, plain_markup
 from make_method_batch import exact_name, record_names
 from primary_methods import extract
-from sync import ROOT, href, load, save, title_key
+from sync import ROOT, href, load, save, title_key, url_key
 
 TYPES = {"journal-article", "posted-content", "proceedings-article"}
 
@@ -24,12 +25,34 @@ def stable_url(url):
     return urlunsplit(parsed._replace(query=urlencode(query), fragment=""))
 
 
+def organization(url):
+    parts = (urlsplit(href(url)).hostname or "").split(".")
+    endings = {"ac", "edu", "gov", "org", "com", "co"}
+    take = 3 if len(parts) >= 3 and len(parts[-1]) == 2 and parts[-2] in endings else 2
+    return ".".join(parts[-take:])
+
+
+def owner_source(person, url, additional):
+    key = url_key(url)
+    if not key:
+        return False
+    trusted = [url_key(address) for address in additional if url_key(address)]
+    urls = person["links"]
+    for role in ("homepage_url", "cv_url", "profile_url"):
+        if source_key := url_key(urls.get(role)):
+            trusted.append(source_key)
+    university = organization(urls.get("profile_url") or urls.get("source_url"))
+    return ((university and organization(url) == university) or
+            any(key == address or key.startswith(address.rstrip("/") + "/") for address in trusted))
+
+
 def publication(registry, person, doi, source, method, citation=None):
     type_ = registry.get("type")
     if type_ not in TYPES or not registry.get("title") or registry.get("DOI", "").lower() != doi:
         return None
     names = record_names(registry)
-    if sum(exact_name(name, person["name"]) for name in names) != 1:
+    accepted = [person["name"], *person.get("publication_aliases", [])]
+    if sum(any(exact_name(name, alias) for alias in accepted) for name in names) != 1:
         return None
     title = plain_markup(registry["title"][0])
     if citation and (len(title_key(title)) < 24 or title_key(title) not in title_key(citation)):
@@ -50,10 +73,18 @@ def main():
     parser.add_argument("--citations", type=Path)
     parser.add_argument("--affiliations", type=Path)
     parser.add_argument("--manual", type=Path)
+    parser.add_argument("--extra-sources", type=Path)
+    parser.add_argument("--aliases", type=Path)
+    parser.add_argument("--verified-sources", type=Path)
+    parser.add_argument("--deep", action="store_true")
     parser.add_argument("--date", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     sources = cache_rows(args.faculty_sources)
+    for pid, row in (cache_rows(args.extra_sources).items() if args.extra_sources else []):
+        initial = sources.get(pid, {"sources": [], "dois": {}})
+        sources[pid] = {**row, "sources": [*initial["sources"], *row["sources"]],
+                        "dois": {**initial["dois"], **row["dois"]}}
     registry = {}
     for file in args.registries:
         registry.update(cache_rows(file))
@@ -63,8 +94,12 @@ def main():
     affiliations = cache_rows(args.affiliations) if args.affiliations else {}
     manual = load(args.manual) if args.manual else {}
     faculty = load(ROOT / "data/faculty.json")
+    verified_sources = load(args.verified_sources) if args.verified_sources else {}
+    for pid, aliases in (load(args.aliases).items() if args.aliases else []):
+        faculty[pid]["publication_aliases"] = aliases
     baseline = load(ROOT / "data/papers.json")
-    cohort = load(ROOT / "data/followup/cohorts.json")["publication_search"]
+    plan = "deep-review-plan.json" if args.deep else "cohorts.json"
+    cohort = load(ROOT / "data/followup" / plan)["publication_search"]
     works, evidence, checks = [], [], []
     for pid in cohort:
         if pid not in sources and pid not in manual:
@@ -73,23 +108,33 @@ def main():
         author = faculty[pid]
         matched = {}
 
+        def trusted(url):
+            return not args.deep or owner_source(author, url, verified_sources.get(pid, []))
+
         def add(row, abstract, evidence_url):
-            if (not row or not row["listing_url"] or row["doi"] in matched or
-                    baseline.get("doi:" + row["doi"], {}).get("retracted")):
+            if not row or not row["listing_url"]:
                 return
-            matched[row["doi"]] = row
+            wid = "doi:" + row["doi"] if row.get("doi") else row["paper_id"]
+            if wid in matched or baseline.get(wid, {}).get("retracted"):
+                return
+            matched[wid] = row
             for mark in extract(abstract):
-                evidence.append({"person_id": pid, "paper_id": "doi:" + row["doi"],
+                evidence.append({"person_id": pid, "paper_id": wid,
                                  "level": PRIMARY, "source": evidence_url,
                                  "locator": f"Publisher-deposited abstract via Crossref, sentence {mark['sentence']}",
                                  **mark})
 
         for doi, urls in sorted({**local["dois"], **manual.get(pid, {}).get("dois", {})}.items()):
+            source_url = next((url for url in urls if trusted(url)), None)
+            if not source_url:
+                continue
             metadata = registry.get(doi, {})
             record = metadata.get("work", {})
-            row = publication(record, author, doi, urls[0], "faculty_doi")
+            row = publication(record, author, doi, source_url, "faculty_doi")
             add(row, plain_markup(record.get("abstract")), metadata.get("url", ""))
         for citation in citations_by_person[pid]:
+            if not trusted(citation["url"]):
+                continue
             matches = {}
             for candidate in citation.get("candidates", []):
                 doi = candidate.get("DOI", "").lower()
@@ -112,8 +157,25 @@ def main():
             metadata = registry.get(doi, {})
             add(row, plain_markup(metadata.get("work", {}).get("abstract")), metadata.get("url", ""))
 
+        if args.deep:
+            known_titles = {title_key(row["title"]) for row in matched.values()}
+            for item in local["sources"]:
+                candidate = item.get("publication")
+                if not candidate or not trusted(item["url"]) or title_key(candidate["title"]) in known_titles:
+                    continue
+                url = stable_url(item["url"])
+                digest = hashlib.sha256(url_key(url).encode()).hexdigest()[:24]
+                add({**candidate, "person_id": pid, "paper_id": "source:" + digest,
+                     "discovery_method": "institutional_publication_record",
+                     "listing_url": url, "verification_url": url}, "", "")
+                known_titles.add(title_key(candidate["title"]))
+
         check_sources = local["sources"] + manual.get(pid, {}).get("sources", [])
-        verified = [item for item in check_sources if item["status"] == "identity_checked"]
+        check_sources = [{**item, "status": "identity_unconfirmed"} if
+                         item["status"] in {"identity_checked", "publication_byline_checked"} and
+                         not trusted(item["url"]) else item for item in check_sources]
+        verified = [item for item in check_sources
+                    if item["status"] in {"identity_checked", "publication_byline_checked"}]
         checks.append({"person_id": pid, "sources": [
             {"url": stable_url(item["url"]), "role": item["role"], "status": item["status"]}
             for item in check_sources if stable_url(item["url"])],
@@ -122,7 +184,7 @@ def main():
                                                                       for item in check_sources) else
                       "identity_unconfirmed" if check_sources else "no_source"),
             "doi_leads": len(local["dois"]), "citation_queries": len(citations_by_person[pid]),
-            "index_status": index_match.get("status")})
+            "index_status": index_match.get("status"), **({"deep_review": True} if args.deep else {})})
         works.extend(matched.values())
     save(args.output, {"checked_at": args.date, "summary": "School profiles, personal websites, public CVs and byline-validated publication records.",
                        "faculty": checks, "publications": works, "evidence": evidence})

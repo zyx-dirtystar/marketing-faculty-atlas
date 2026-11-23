@@ -2,7 +2,7 @@
 
 import re
 
-VERSION = "primary-abstract-1.1"
+VERSION = "primary-methods-1.2"
 ACTION = re.compile(r"\b(?:this (?:study|paper|research|article)|we|our (?:study|research|results|data)|"
                     r"the authors?|i (?:use|conduct|estimate|develop)|using|based on|with data from|"
                     r"evidence from|results from|(?:multiple|two|three|four|five|six|seven|eight|nine) studies|"
@@ -59,6 +59,16 @@ RULES = {
             "Structural equation or latent-variable modeling"),
     "bayesian": (r"\b(?:hierarchical Bayesian|Bayesian hierarchical) (?:model|method|framework|approach)\b",
                  "Hierarchical Bayesian estimation"),
+    "survey": (r"\b(?:we|the authors?) (?:conduct\w*|administer\w*|field\w*|analy[sz]\w*|"
+               r"use\w*)\b[^.;]{0,65}\b(?:a |an )?(?:national |online |field |longitudinal )?survey\b|"
+               r"\b(?:data from|using|administered|analy[sz]ed)\b[^.;]{0,30}\b(?:an? |the )?"
+               r"(?:online |customer |consumer |field |national )?survey(?: data| responses)?\b",
+               "Survey data collection or analysis"),
+    "panel_model": (r"\b(?:two.way fixed.effects|panel regression|within estimator)\b|"
+                    r"\b(?:estimate|use|fit|specify)\w*\b[^.;]{0,50}\b(?:panel regression|"
+                    r"(?:household|firm|individual|store) (?:and time )?fixed effects)\b", "Panel-data estimator"),
+    "duration_model": (r"\b(?:cox (?:regression|proportional hazards?)|event.history analy\w+|"
+                       r"duration model|discrete.time hazard model|survival analysis)\b", "Event-history or hazard model"),
     "observational": (r"\b(?:observational (?:data|records)|scanner (?:data|panel)|"
                       r"(?:sales|transaction|household purchase) (?:data|records|panel))\b", "Observed records or panel data"),
     "quasi": (r"\b(?:natural experiment|quasi.experiment\w*|exogenous shock)\b", "Quasi-experimental variation"),

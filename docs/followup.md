@@ -2,11 +2,14 @@
 
 The cohorts are pinned to the first release in [cohorts.json](../data/followup/cohorts.json). They contain 777 faculty with unresolved method or design leads and 469 profiles that had no listed paper. A second search within the first cohort checks alternate publications when the original leads leave a research method unresolved. The [live coverage report](https://zyx-dirtystar.github.io/marketing-faculty-atlas/#/coverage) shows completed source checks and usable evidence.
 
+The [deeper review plan](../data/followup/deep-review-plan.json) pins the remaining 84 method profiles and 270 publication searches to the previous release. It records the known paper queue and checks public author manuscripts, methods sections, institutional repositories, research profiles and CVs.
+
 ## What counts as evidence
 
 | Result | Review procedure |
 | --- | --- |
 | Source reviewed | Read the paper, author manuscript or study description and record the byline, method and relevant location. |
+| Primary full-text evidence | Record an explicitly reported technique from a matched paper or accepted manuscript and give the relevant methods section or PDF page. A successful access check means the methods text was retrieved. An annotation additionally requires a usable method statement and verified authorship. |
 | Primary abstract evidence | Match the DOI, title and byline or ORCID, then run explicit method rules on a publisher-deposited abstract, publisher page or openly posted manuscript. Each result includes a technique, sentence number, source and rule version. |
 | Registry only | The bibliographic source was checked and insufficient primary text was available for a method annotation. |
 | Abstract read with no explicit method | The available text did not establish a method under these rules. |
@@ -19,6 +22,8 @@ Method mentions in editorials, background citations or proposals need context. F
 The search uses upstream links to school profiles, personal sites, public CVs and publication pages, following additional links when appropriate. DOI and title matches require a concordant registered author. A secondary route identifies a unique indexed author from an already verified faculty profile, and links papers with the same recorded institution on their author entry or an exact ORCID. This secondary route is labeled separately in the authorship export. Some papers are outside Marketing and remain bibliographic records with their original titles and venues.
 
 The follow-up export enumerates sources consulted and distinguishes published links, a readable profile with insufficient publication evidence, access failures and a profile whose identity needs review. These searches cover publicly accessible records at the recorded URLs and times. The maximum of 20 recent indexed records applies only to the supplemental affiliation search.
+
+Deeper publication checks require that the DOI or citation comes from the listed institution or an independently confirmed author page. A matching name on a third-party index, an unrelated CV, or a standalone publication page cannot establish identity. DOI-free repository records require a byline and explicitly identified publication type.
 
 ## Rebuild and update
 

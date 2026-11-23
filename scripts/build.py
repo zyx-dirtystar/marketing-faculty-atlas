@@ -8,10 +8,11 @@ from pathlib import Path
 import shutil
 
 from sync import ROOT, href, load, save
-from apply_followup import LEVELS, PRIMARY, REVIEWED, SIGNAL, merge_followups
+from apply_followup import FULLTEXT, LEVELS, PRIMARY, REVIEWED, SIGNAL, merge_followups
 
 STATUS = {
     REVIEWED: "Source reviewed",
+    FULLTEXT: "Primary full-text evidence",
     PRIMARY: "Primary abstract evidence",
     SIGNAL: "Abstract signals available",
     "abstract_no_signal": "Abstract checked, no tag signal",
@@ -70,7 +71,7 @@ def make_catalog(faculty, works, authors, evidence, taxonomy):
             allowed = set()
             if identity in ("upstream_byline_agrees", "orcid_agrees", "faculty_listing", REVIEWED) and not paper["retracted"]:
                 indexed += paper["abstract_status"] == "indexed"
-                allowed.update((SIGNAL, PRIMARY))
+                allowed.update((SIGNAL, PRIMARY, FULLTEXT))
                 if identity == REVIEWED:
                     allowed.add(REVIEWED)
             marks = [mark for mark in by_work[paper["id"]] if mark["level"] in allowed and
@@ -81,8 +82,11 @@ def make_catalog(faculty, works, authors, evidence, taxonomy):
                 # truth. Automatic suggestions cannot add extra public tags.
                 marks = [mark for mark in marks if mark["level"] == REVIEWED]
             else:
-                verified_tags = {mark["tag"] for mark in marks if mark["level"] == PRIMARY}
-                marks = [mark for mark in marks if mark["level"] == PRIMARY or mark["tag"] not in verified_tags]
+                priority = {level: index for index, level in enumerate(LEVELS)}
+                best = {}
+                for mark in sorted(marks, key=lambda entry: priority[entry["level"]]):
+                    best.setdefault(mark["tag"], mark)
+                marks = list(best.values())
             for level in LEVELS:
                 matched = sorted({mark["tag"] for mark in marks if mark["level"] == level})
                 tag_counts[level].update(matched)
@@ -94,10 +98,12 @@ def make_catalog(faculty, works, authors, evidence, taxonomy):
                     for level in LEVELS}
             papers.append({**paper, "authorship": identity, "evidence": marks,
                            "listing_url": link.get("listing_url"), "discovery_method": link.get("discovery_method"),
-                           "byline_check": link.get("followup_byline")})
+                           "byline_check": link.get("followup_byline"), "identity_source": link.get("identity_source")})
         status = "no_papers"
         if tag_counts[REVIEWED]:
             status = REVIEWED
+        elif tag_counts[FULLTEXT]:
+            status = FULLTEXT
         elif tag_counts[PRIMARY]:
             status = PRIMARY
         elif tag_counts[SIGNAL]:

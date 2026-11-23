@@ -2,9 +2,11 @@ import { matchingPeople } from "./filters.js";
 
 const app = document.getElementById("app");
 const reviewed = "source_reviewed";
+const fullText = "primary_fulltext";
 const primaryAbstract = "primary_abstract";
 const signal = "abstract_signal";
-const evidenceLabels = { [reviewed]: "Source reviewed", [primaryAbstract]: "Primary abstract evidence",
+const evidenceLabels = { [reviewed]: "Source reviewed", [fullText]: "Primary full-text evidence",
+  [primaryAbstract]: "Primary abstract evidence",
   [signal]: "Abstract signal" };
 const levels = Object.keys(evidenceLabels);
 const roleLabels = { pub: "Publication", rr: "Revise & resubmit", wp: "Working paper" };
@@ -76,7 +78,7 @@ function atlasDirectory(params) {
       <dl class="stats">
         <div><dt>Faculty</dt><dd>${format(data.audit.faculty_total)}</dd></div>
         <div><dt>Source reviewed</dt><dd>${format(checked)}</dd></div>
-        <div><dt>Primary abstract</dt><dd>${format(data.audit.status[primaryAbstract])}</dd></div>
+        <div><dt>Primary paper text</dt><dd>${format((data.audit.status[primaryAbstract] || 0) + (data.audit.status[fullText] || 0))}</dd></div>
         <div><dt>Abstract signals only</dt><dd>${format(withSignals)}</dd></div>
       </dl>
     </section>
@@ -164,12 +166,16 @@ function paperCard(paper, tag) {
     <small>${escape(status)}</small>
     <h3>${link(paper.url, paper.title) || escape(paper.title)}</h3>
     <p class="authors">${escape(paper.authors.join(", "))}</p>
+    ${paper.identity_source ? `<small>${link(paper.identity_source, "Authorship decision source")}</small>` : ""}
     ${paper.listing_url ? `<small>${link(paper.listing_url, paper.discovery_method === "official_affiliation_index" ?
       "Faculty profile" : "Publication listing or CV")}</small>` : ""}
     ${marks.length ? `<details${tag ? " open" : ""}><summary>${marks.length} evidence entries</summary><ul class="evidence">${marks.map(evidenceRow).join("")}</ul></details>` : ""}
     ${paper.followup_check ? `<details><summary>Follow-up source check</summary>
       <p>${link(paper.followup_check.source, paper.followup_check.state.replaceAll("_", " "))}
       ${paper.byline_check ? " · " + escape(paper.byline_check.replaceAll("_", " ")) : ""}</p></details>` : ""}
+    ${paper.fulltext_check ? `<details><summary>Full-text search</summary><p>
+      ${link(paper.fulltext_check.source, paper.fulltext_check.state === "fulltext_read" ? "Public methods text read" : "Full text unavailable")}
+      · ${format(paper.fulltext_check.attempts.length)} source attempts</p></details>` : ""}
     ${paper.method_corrections?.length ? `<details><summary>Method corrections</summary><ul>
       ${paper.method_corrections.map((row) => `<li>${escape(row.note)} ${link(row.source, "Source")}</li>`).join("")}</ul></details>` : ""}
     ${paper.versions.length > 1 ? `<details><summary>${paper.versions.length} source records</summary><ul>${paper.versions.map((v) =>
@@ -220,7 +226,7 @@ async function profile(id, params, request) {
     return `<h3 class="group-label">${escape(dimension)}</h3>
       <ul class="tag-list">${sectionTags.map((item) => `<li>
         ${tagButton(item, bestLevel(person, item), path + "?tag=" + encodeURIComponent(item))}
-        <small>${format(person.counts[reviewed][item])} reviewed · ${format(person.counts[primaryAbstract][item])} primary abstracts · ${format(person.counts[signal][item])} signals
+        <small>${format(person.counts[reviewed][item])} reviewed · ${format(person.counts[fullText][item])} full texts · ${format(person.counts[primaryAbstract][item])} primary abstracts · ${format(person.counts[signal][item])} signals
           ${person.latest[item] ? " · " + person.latest[item] : ""}</small>
       </li>`).join("")}</ul>`;
   }).join("")}
@@ -240,7 +246,10 @@ function followupPanel(row) {
   if (row.cohort === "method_review") {
     return `<details><summary>Follow-up paper checks</summary>
       <p>${format(row.papers_checked)} of ${format(row.papers_queued)} queued papers checked.
-      ${row.alternate_papers_checked ? `${format(row.alternate_papers_checked)} additional papers checked.` : ""}</p></details>`;
+      ${row.alternate_papers_checked ? `${format(row.alternate_papers_checked)} additional papers checked.` : ""}
+      ${row.fulltext_attempted ? `${format(row.fulltext_read)} full texts read from ${format(row.fulltext_attempted)} searches.` : ""}</p>
+      ${row.author_sources?.length ? `<ul>${row.author_sources.map((item) => `<li>${link(item.url, item.role.replaceAll("_", " "))}
+        · ${escape(item.status.replaceAll("_", " "))}</li>`).join("")}</ul>` : ""}</details>`;
   }
   const sourceStates = { identity_checked: "Profile or CV read", identity_unconfirmed: "Identity needs review",
     connection_error: "Connection failed", pdf_text_unavailable: "PDF text unavailable" };
@@ -272,12 +281,17 @@ function coverage() {
       ${format(report.followup.method_faculty_all_queued_papers_checked)} have results for every queued paper.
       ${report.followup.alternate_works_checked ? `${format(report.followup.alternate_works_checked)} additional papers were checked.` : ""}</p>
       <p>${format(report.followup.method_faculty_with_manual_evidence)} faculty have a source review and
-      ${format(report.followup.method_faculty_with_primary_abstract_only)} more have methods documented in a primary abstract.
-      Primary abstracts are checked with rules for explicitly stated methods.</p>
+      ${format(report.followup.method_faculty_with_primary_fulltext_only)} have evidence from full text.
+      ${format(report.followup.method_faculty_with_primary_abstract_only)} more have methods documented in a primary abstract.</p>
       <p>${format(report.followup.publication_faculty_attempted)} of ${format(report.followup.publication_cohort)} publication searches logged.
       ${format(report.followup.publication_faculty_with_papers)} faculty have linked works from this follow-up.
       ${format(report.followup.distinct_publications_found)} distinct works were linked.</p>
       <p><a href="download/followup.csv">Follow-up CSV</a> · <a href="download/followup.json">Follow-up JSON</a></p>
+      ${report.followup.deep_review ? `<h3>Deeper follow-up</h3>
+      <p>${format(report.followup.deep_review.methods_supported)} of ${format(report.followup.deep_review.method_faculty)} remaining method profiles now have evidence.
+      ${format(report.followup.deep_review.fulltexts_read)} full texts read from ${format(report.followup.deep_review.fulltext_searches)} paper searches.</p>
+      <p>${format(report.followup.deep_review.publication_searches)} of ${format(report.followup.deep_review.publication_faculty)} additional publication searches logged.
+      ${format(report.followup.deep_review.faculty_with_papers)} faculty now have linked works.</p>` : ""}
     </section>` : ""}
     <section class="panel coverage">
       <h2>Download data</h2>
@@ -292,9 +306,9 @@ function coverage() {
     Object.entries(report.track),
     Object.entries(report.school).map(([key, row]) => [data.schools[key].name, row]).sort((a, b) => a[0].localeCompare(b[0]))
   ].map((rows) => `<div class="table-frame audit-table"><table><thead>
-        <tr><th>Group</th><th>Faculty</th><th>Source reviewed</th><th>Primary abstract</th><th>Abstract signals only</th><th>Without labels</th></tr>
+        <tr><th>Group</th><th>Faculty</th><th>Source reviewed</th><th>Primary full text</th><th>Primary abstract</th><th>Abstract signals only</th><th>Without labels</th></tr>
         </thead><tbody>${rows.map(([name, row]) => `<tr><td>${escape(name)}</td>
-          <td>${count(row, "total")}</td><td>${count(row, reviewed)}</td><td>${count(row, primaryAbstract)}</td><td>${count(row, signal)}</td>
+          <td>${count(row, "total")}</td><td>${count(row, reviewed)}</td><td>${count(row, fullText)}</td><td>${count(row, primaryAbstract)}</td><td>${count(row, signal)}</td>
           <td>${format(row.total - levels.reduce((sum, level) => sum + (row[level] || 0), 0))}</td></tr>`).join("")}</tbody></table></div>`).join("")}
     </section>`;
 }

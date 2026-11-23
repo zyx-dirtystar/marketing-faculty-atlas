@@ -5,9 +5,10 @@ from collections import Counter, defaultdict
 from sync import ROOT, href, load
 
 REVIEWED = "source_reviewed"
+FULLTEXT = "primary_fulltext"
 PRIMARY = "primary_abstract"
 SIGNAL = "abstract_signal"
-LEVELS = (REVIEWED, PRIMARY, SIGNAL)
+LEVELS = (REVIEWED, FULLTEXT, PRIMARY, SIGNAL)
 
 
 def check(condition, message):
@@ -26,15 +27,23 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
     original_queue = set(cohort["paper_queue"])
     extra_plan = directory / "alternate-method-plan.json"
     extra_methods = load(extra_plan)["method_review"] if extra_plan.exists() else {}
+    deep_plan_path = directory / "deep-review-plan.json"
+    deep_plan = load(deep_plan_path) if deep_plan_path.exists() else {}
+    deep_methods = deep_plan.get("method_review", {})
+    deep_publications = set(deep_plan.get("publication_search", []))
+    check(set(deep_methods) <= set(methods) and deep_publications <= missing,
+          "Deep review is outside the fixed cohorts")
     check(set(extra_methods) <= set(methods), "Alternate review is outside the methods cohort")
     extra_queue = {wid for rows in extra_methods.values() for wid in rows}
-    queue = original_queue | extra_queue
+    deep_queue = {wid for rows in deep_methods.values() for wid in rows}
+    queue = original_queue | extra_queue | deep_queue
     check(len(methods) == 777 and len(missing) == 469 and not missing.intersection(methods),
           "The frozen follow-up cohorts changed")
     check((set(methods) | missing) <= set(faculty) and queue <= set(works), "Follow-up sources changed")
     links = {(row["person_id"], row["paper_id"]): row for row in authors}
     by_person = defaultdict(dict)
     checks, searches, tested = {}, {}, {}
+    author_sources, fulltext_checks = {}, {}
     corrections = defaultdict(dict)
     batches = []
     tags = {tag for group in taxonomy.values() for tag in group}
@@ -43,6 +52,14 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
         batch = load(path)
         date = batch["checked_at"]
         batches.append({"id": path.stem, "checked_at": date, "summary": batch["summary"]})
+        for row in batch.get("author_sources", []):
+            pid = row["person_id"]
+            check(pid in deep_methods, f"Source is outside the deeper methods review: {pid}")
+            author_sources[pid] = row["sources"]
+        for row in batch.get("fulltext_checks", []):
+            wid = row["paper_id"]
+            check(wid in deep_queue and href(row["source"]), f"Invalid full-text check: {wid}")
+            fulltext_checks[wid] = {**row, "checked_at": date, "batch": path.stem}
         for item in batch.get("papers", []):
             wid = item["paper_id"]
             check(wid in queue, f"Paper outside fixed cohort: {wid}")
@@ -56,7 +73,7 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
             doi = row.get("doi")
             wid = "doi:" + doi if doi else row["paper_id"]
             paper_url = "https://doi.org/" + doi if doi else row["verification_url"]
-            check(pid in missing and (doi or wid.startswith("source:")) and
+            check((pid in missing or pid in deep_methods) and (doi or wid.startswith("source:")) and
                   href(row["listing_url"]) and href(row["verification_url"]),
                   f"Unverifiable discovered publication: {pid} / {wid}")
             paper = works.setdefault(wid, {
@@ -90,19 +107,23 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
             check(pid in methods or pid in missing, f"Unknown follow-up person {pid}")
             check((pid, wid) in links and links[pid, wid]["identity"] != "review_needed"
                   and not works[wid]["retracted"], f"Invalid follow-up evidence: {pid} / {wid}")
-            check(level in (REVIEWED, PRIMARY) and mark["tag"] in tags and href(mark["source"]),
+            check(level in LEVELS[:-1] and mark["tag"] in tags and href(mark["source"]),
                   f"Invalid follow-up annotation: {mark}")
             if level == REVIEWED:
                 links[pid, wid]["identity"] = REVIEWED
             tested[pid, wid, mark["tag"], level] = {**mark, "checked_at": date, "batch": path.stem}
         for decision in batch.get("author_checks", []):
             pid, wid = decision["person_id"], decision["paper_id"]
-            check(pid in methods and (wid in methods[pid] or wid in extra_methods.get(pid, [])),
+            check(pid in methods and (wid in methods[pid] or wid in extra_methods.get(pid, [])
+                                      or wid in deep_methods.get(pid, [])),
                   f"Invalid byline check: {pid} / {wid}")
             if by_person[pid].get(wid, "").startswith("manual_") and not decision["state"].startswith("manual_"):
                 continue
             by_person[pid][wid] = decision["state"]
             links[pid, wid]["followup_byline"] = decision["state"]
+            if decision["state"] == "manual_identity_rejected":
+                check(href(decision.get("source")), f"Missing authorship review source: {pid} / {wid}")
+                links[pid, wid].update({"identity": "review_needed", "identity_source": decision["source"]})
         for row in batch.get("corrections", []):
             wid, tag = row["paper_id"], row["tag"]
             check(wid in queue and tag in tags and href(row["source"]), f"Invalid method correction: {row}")
@@ -110,6 +131,8 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
 
     for wid, row in checks.items():
         works[wid]["followup_check"] = row
+    for wid, row in fulltext_checks.items():
+        works[wid]["fulltext_check"] = row
     for wid, tags_removed in corrections.items():
         works[wid]["method_corrections"] = list(tags_removed.values())
     evidence[:] = [row for row in [*evidence, *tested.values()]
@@ -117,7 +140,8 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
 
     reviewed_people = {pid for pid, _, _, level in tested if level == REVIEWED}
     primary_people = {row["person_id"] for row in evidence if row["level"] == PRIMARY}
-    publication_counts = Counter(pid for (pid, _), link in links.items() if "followup_batch" in link)
+    fulltext_people = {row["person_id"] for row in evidence if row["level"] == FULLTEXT}
+    publication_counts = Counter(pid for (pid, _), link in links.items() if pid in missing and "followup_batch" in link)
     rows = []
     for pid, papers in methods.items():
         complete = sum(wid in checks for wid in papers)
@@ -125,9 +149,15 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
                "papers_checked": complete, "byline_checks": Counter(by_person[pid].values()),
                "alternate_papers_checked": sum(wid in checks for wid in extra_methods.get(pid, [])),
                "state": ("source_reviewed" if pid in reviewed_people else
+                         "primary_fulltext" if pid in fulltext_people else
                          "primary_abstract" if pid in primary_people else
                          "sources_checked" if complete == len(papers) else
                          "in_progress" if complete else "pending")}
+        if pid in deep_methods:
+            examined = [fulltext_checks[wid] for wid in deep_methods[pid] if wid in fulltext_checks]
+            row["fulltext_attempted"] = len(examined)
+            row["fulltext_read"] = sum(item["state"] == "fulltext_read" for item in examined)
+            row["author_sources"] = author_sources.get(pid, [])
         rows.append(row)
         faculty[pid]["followup"] = row
     for pid in sorted(missing):
@@ -139,7 +169,7 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
                "batch": search.get("batch")}
         rows.append(row)
         faculty[pid]["followup"] = row
-    return {
+    report = {
         "baseline": cohort["baseline"], "batches": batches,
         "method_cohort": len(methods), "publication_cohort": len(missing),
         "queued_works": len(original_queue), "works_checked": len(original_queue & checks.keys()),
@@ -150,12 +180,30 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
         "method_faculty_attempted": sum(any(wid in checks for wid in papers) for papers in methods.values()),
         "method_faculty_all_queued_papers_checked": sum(all(wid in checks for wid in papers) for papers in methods.values()),
         "method_faculty_with_manual_evidence": len(reviewed_people & set(methods)),
-        "method_faculty_with_primary_abstract_only": len((primary_people - reviewed_people) & set(methods)),
+        "method_faculty_with_primary_fulltext_only": len((fulltext_people - reviewed_people) & set(methods)),
+        "method_faculty_with_primary_abstract_only": len((primary_people - reviewed_people - fulltext_people) & set(methods)),
         "publication_faculty_attempted": len(searches),
         "publication_faculty_with_papers": len(publication_counts),
         "publication_faculty_outcomes": Counter(row["state"] for row in rows if row["cohort"] == "publication_search"),
         "publication_links_found": sum(publication_counts.values()),
-        "distinct_publications_found": len({wid for (_, wid), link in links.items() if "followup_batch" in link}),
-        "publication_links_by_source": Counter(link["discovery_method"] for link in links.values()
-                                               if "followup_batch" in link),
-    }, rows + list(checks.values())
+        "distinct_publications_found": len({wid for (pid, wid), link in links.items()
+                                             if pid in missing and "followup_batch" in link}),
+        "publication_links_by_source": Counter(link["discovery_method"] for (pid, _), link in links.items()
+                                               if pid in missing and "followup_batch" in link),
+    }
+    if deep_plan:
+        report["deep_review"] = {
+            "baseline": deep_plan["baseline"],
+            "method_faculty": len(deep_methods),
+            "fulltext_searches": len(fulltext_checks),
+            "fulltexts_read": sum(row["state"] == "fulltext_read" for row in fulltext_checks.values()),
+            "author_profiles_checked": len(author_sources),
+            "methods_supported": len((reviewed_people | fulltext_people | primary_people) & set(deep_methods)),
+            "method_outcomes": Counter(row["state"] for row in rows if row["person_id"] in deep_methods),
+            "publication_faculty": len(deep_publications),
+            "publication_searches": sum(searches.get(pid, {}).get("deep_review", False) for pid in deep_publications),
+            "faculty_with_papers": sum(pid in publication_counts for pid in deep_publications),
+            "publication_outcomes": Counter(row["state"] for row in rows if row["person_id"] in deep_publications),
+        }
+    return report, rows + list(checks.values()) + [{**row, "check_kind": "fulltext"}
+                                                  for row in fulltext_checks.values()]

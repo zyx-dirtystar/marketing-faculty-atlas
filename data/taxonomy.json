@@ -15,7 +15,10 @@
     "meta_analysis": "Meta-analysis",
     "conjoint": "Conjoint analysis",
     "sem": "Structural equation modeling",
-    "bayesian": "Bayesian estimation"
+    "bayesian": "Bayesian estimation",
+    "survey": "Survey research",
+    "panel_model": "Panel-data econometrics",
+    "duration_model": "Duration / event-history modeling"
   },
   "objective": {
     "empirical": "Empirical",
