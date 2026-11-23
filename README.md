@@ -39,6 +39,8 @@ Use the new observation date when refreshing. Abstract accession and ORCID calls
 
 Edit the reviewer-maintained [paper register](data/pilot.json) to add or correct a paper-level claim, establish a version alias, or verify another faculty byline. The register is applied during sync and remains separate from the generated snapshot. To report a correction, open an issue with the faculty profile, DOI and evidence.
 
+Follow-up reviews and publication searches are maintained in [data/followup](data/followup). The static build validates and applies each batch without modifying the upstream snapshot. Source collectors use local caches and the build runs from committed data alone.
+
 ## Attribution
 
 Econ Atlas supplies the roster and original publication links. The Atlas retains its static Python build pattern and school-sharded profile layout using independently authored code. Publisher pages and author manuscripts supply the reviewed evidence. OpenAlex supplies DOI and exact-ORCID discovery metadata. The snapshot publishes bibliographic fields, original field labels, links and derived evidence summaries. Full abstracts and article PDFs stay with their sources. The placement project is used for cross-checks. [Econ Atlas source](https://github.com/econ-faculty/econ-faculty.github.io) · [OpenAlex](https://openalex.org/) · [mkt-io-placement](https://github.com/zyx-dirtystar/mkt-io-placement)
