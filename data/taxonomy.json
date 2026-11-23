@@ -8,6 +8,8 @@
     "causal_ml": "Causal machine learning",
     "nlp": "Natural language processing",
     "computer_vision": "Computer vision",
+    "audio_analysis": "Computational audio analysis",
+    "eye_tracking": "Eye tracking",
     "reduced_form": "Reduced-form econometrics",
     "behavioral_experiment": "Behavioral experiments",
     "qualitative": "Qualitative methods",
@@ -17,6 +19,7 @@
     "sem": "Structural equation modeling",
     "bayesian": "Bayesian estimation",
     "survey": "Survey research",
+    "time_series": "Time-series econometrics",
     "panel_model": "Panel-data econometrics",
     "duration_model": "Duration / event-history modeling"
   },

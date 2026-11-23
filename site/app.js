@@ -234,6 +234,8 @@ async function profile(id, params, request) {
   }).join("")}
         ${person.education.length ? `<details><summary>Education</summary><ul>${person.education.map((item) => `<li>${escape(item.degree.toUpperCase())} · ${escape(item.institution)} ${escape(item.year)} ${escape(item.field)}</li>`).join("")}</ul></details>` : ""}
         ${followupPanel(person.followup)}
+        ${person.identity_correction ? `<details><summary>Author identifier check</summary><p>
+          ${escape(person.identity_correction.note)} ${link(person.identity_correction.source, "Verification source")}</p></details>` : ""}
         ${placement ? `<details><summary>Placement project cross-check</summary><p>${placement.state === "shared_profile_url" ? "Shared identifier and concordant name" : "Identity review needed"}</p><ul>${placement.candidates.map((item) => `<li>${link(item.profile_url, item.name) || escape(item.name)} · ${escape(item.institution)} · ${escape(item.checked_at)}<small>${escape(item.tracks.join(", "))}${item.institution_name_differs ? " · Institution names differ" : ""}</small></li>`).join("")}</ul></details>` : ""}
       </section>
       <section>

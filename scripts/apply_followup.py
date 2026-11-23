@@ -2,7 +2,7 @@
 
 from collections import Counter, defaultdict
 
-from sync import ROOT, href, load
+from sync import ROOT, href, load, orcid_key
 
 REVIEWED = "source_reviewed"
 FULLTEXT = "primary_fulltext"
@@ -52,6 +52,13 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
         batch = load(path)
         date = batch["checked_at"]
         batches.append({"id": path.stem, "checked_at": date, "summary": batch["summary"]})
+        for row in batch.get("identity_corrections", []):
+            pid = row["person_id"]
+            identifier = orcid_key(row["orcid"])
+            check(pid in deep_publications and identifier and href(row["source"]), f"Invalid identity correction: {pid}")
+            if orcid_key(faculty[pid]["orcid"]) == identifier:
+                faculty[pid]["identity_correction"] = {"source": row["source"], "note": row["note"]}
+                faculty[pid]["orcid"] = None
         for row in batch.get("author_sources", []):
             pid = row["person_id"]
             check(pid in deep_methods, f"Source is outside the deeper methods review: {pid}")

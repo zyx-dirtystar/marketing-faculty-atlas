@@ -33,6 +33,8 @@ EXIT = re.compile(r"^(?:(?:\d+[.)]?\s+|[ivx]+\.\s+))?(?:results|discussion|concl
                   r"related (?:research|work)|theoretical background|hypotheses(?: development)?)\s*$", re.I)
 PDF_LINK = re.compile(r"\b(?:full[- ]text|view pdf|download pdf|accepted manuscript|author manuscript|"
                       r"working paper|open access|document download)\b", re.I)
+CV_DOCUMENT = re.compile(r"\b(?:curriculum vitae|academic appointments|academic positions|"
+                         r"professional appointments|refereed journal publications)\b", re.I)
 
 
 def headings_from_pdf(text):
@@ -60,6 +62,8 @@ def pdf_sections(body, doi, title):
     opening = text[:9500]
     if not opening or (doi not in find_dois(opening) and title_key(title) not in title_key(opening)):
         return [], "pdf_title_unconfirmed"
+    if CV_DOCUMENT.search(opening[:3800]) and not re.search(r"^\s*abstract\b", opening[:3800], re.I | re.M):
+        return [], "bibliographic_listing_only"
     sections = headings_from_pdf(text)
     if not any(len(row["text"]) >= 130 for row in sections):
         return [], "pdf_no_method_heading"

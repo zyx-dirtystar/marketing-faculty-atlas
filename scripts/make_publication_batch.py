@@ -77,17 +77,18 @@ def main():
     parser.add_argument("--citations", type=Path)
     parser.add_argument("--affiliations", type=Path)
     parser.add_argument("--manual", type=Path)
-    parser.add_argument("--extra-sources", type=Path)
+    parser.add_argument("--extra-sources", type=Path, action="append", default=[])
     parser.add_argument("--orcid-sources", type=Path)
     parser.add_argument("--orcid-profiles", type=Path)
     parser.add_argument("--aliases", type=Path)
     parser.add_argument("--verified-sources", type=Path)
+    parser.add_argument("--previous", type=Path, action="append", default=[])
     parser.add_argument("--deep", action="store_true")
     parser.add_argument("--date", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     sources = cache_rows(args.faculty_sources)
-    for path in (args.extra_sources, args.orcid_sources):
+    for path in (*args.extra_sources, args.orcid_sources):
         for pid, row in (cache_rows(path).items() if path else []):
             initial = sources.get(pid, {"sources": [], "dois": {}})
             dois = {doi: list(dict.fromkeys(initial["dois"].get(doi, []) + row["dois"].get(doi, [])))
@@ -109,6 +110,10 @@ def main():
     for pid, aliases in (load(args.aliases).items() if args.aliases else []):
         faculty[pid]["publication_aliases"] = aliases
     baseline = load(ROOT / "data/papers.json")
+    prior = defaultdict(set)
+    for path in args.previous:
+        for row in load(path)["publications"]:
+            prior[row["person_id"]].add(title_key(row["title"]))
     plan = "deep-review-plan.json" if args.deep else "cohorts.json"
     cohort = load(ROOT / "data/followup" / plan)["publication_search"]
     works, evidence, checks = [], [], []
@@ -126,7 +131,7 @@ def main():
             if not row or not row["listing_url"]:
                 return
             wid = "doi:" + row["doi"] if row.get("doi") else row["paper_id"]
-            if wid in matched or baseline.get(wid, {}).get("retracted"):
+            if wid in matched or title_key(row["title"]) in prior[pid] or baseline.get(wid, {}).get("retracted"):
                 return
             matched[wid] = row
             for mark in extract(abstract):
@@ -191,9 +196,10 @@ def main():
         checks.append({"person_id": pid, "sources": [
             {"url": stable_url(item["url"]), "role": item["role"], "status": item["status"]}
             for item in check_sources if stable_url(item["url"])],
-            "state": ("papers_found" if matched else "profile_read_no_verified_paper" if verified else
-                      "sources_inaccessible" if check_sources and all(item["status"] != "identity_unconfirmed"
-                                                                      for item in check_sources) else
+            "state": ("papers_found" if matched or prior[pid] else "profile_read_no_verified_paper" if verified else
+                      "sources_inaccessible" if check_sources and all(
+                          item["status"] not in {"identity_unconfirmed", "orcid_name_mismatch",
+                                                 "publication_byline_unconfirmed"} for item in check_sources) else
                       "identity_unconfirmed" if check_sources else "no_source"),
             "doi_leads": len(local["dois"]), "citation_queries": len(citations_by_person[pid]),
             "index_status": index_match.get("status"), **({"deep_review": True} if args.deep else {})})
