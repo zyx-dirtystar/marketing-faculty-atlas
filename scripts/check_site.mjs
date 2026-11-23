@@ -116,4 +116,9 @@ test("deeper review preserves the cohorts, working papers and negative authorshi
     .find((paper) => paper.id === "work:68f74c48962051e91228d81f");
   assert.equal(recovered.doi, "10.1093/jcr/ucx056");
   assert.equal(recovered.title_check.state, "exact_title_byline");
+  const zhao = people.find((row) => row.id === "jing-zhao--whu");
+  const publications = load(`people/${zhao.school}.json`)[zhao.id].papers;
+  assert(publications.some((paper) => paper.discovery_method === "publisher_affiliation" &&
+    paper.registered_affiliation.includes("Wuhan University")));
+  assert(!publications.some((paper) => paper.title.includes("azidotrifluoromethylation")));
 });

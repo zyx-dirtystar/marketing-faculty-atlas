@@ -155,11 +155,12 @@ function evidenceRow(mark) {
 function paperCard(paper, tag) {
   const marks = tag ? paper.evidence.filter((mark) => mark.tag === tag) : paper.evidence;
   const byCv = paper.discovery_method === "cv_working_paper";
+  const byAffiliation = ["official_affiliation_index", "publisher_affiliation"].includes(paper.discovery_method);
   const status = [
     paper.year, roleLabels[paper.status], paper.venue,
     paper.discovery === "openalex_exact_orcid" ? "OpenAlex · exact ORCID" : "",
     byCv ? "Listed in public CV" :
-    paper.discovery_method === "official_affiliation_index" ? "Paper affiliation matched to faculty profile" :
+    byAffiliation ? "Paper affiliation matched to faculty profile" :
       paper.listing_url ? "Faculty publication source" : "",
     paper.retracted ? "Retracted" : "",
     paper.authorship === "review_needed" ? "Authorship needs review" : "",
@@ -170,7 +171,8 @@ function paperCard(paper, tag) {
     <p class="authors">${escape(paper.authors.join(", "))}</p>
     ${paper.identity_source ? `<small>${link(paper.identity_source, "Authorship decision source")}</small>` : ""}
     ${paper.listing_url ? `<small>${link(paper.listing_url, byCv ? "Public CV" :
-      paper.discovery_method === "official_affiliation_index" ? "Faculty profile" : "Publication listing or source")}</small>` : ""}
+      byAffiliation ? "Faculty profile" : "Publication listing or source")}</small>` : ""}
+    ${paper.registered_affiliation ? `<p><small>${escape(paper.registered_affiliation)}</small></p>` : ""}
     ${marks.length ? `<details${tag ? " open" : ""}><summary>${marks.length} evidence entries</summary><ul class="evidence">${marks.map(evidenceRow).join("")}</ul></details>` : ""}
     ${paper.followup_check ? `<details><summary>Follow-up source check</summary>
       <p>${link(paper.followup_check.source, paper.followup_check.state.replaceAll("_", " "))}

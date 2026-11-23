@@ -29,6 +29,8 @@ The atlas also records a working paper when the work has a titled entry in a pub
 
 An ORCID work must match a verified full-name variant in the publisher-registered byline. This check can reject works attached to the correct ORCID through a namesake. When a faculty page supplies a name that is incomplete in the upstream roster, the atlas displays the verified name alongside the upstream name and keeps the existing profile identifier.
 
+The supplementary affiliation search queries Crossref for the named researcher and institution. A paper qualifies when the same registered author entry names the university and a business-related academic unit. The export records the query outcome and ties each accepted paper to its DOI and faculty profile.
+
 ## Rebuild and update
 
 `python scripts/build.py` validates and applies each checked-in batch. The [data tables](https://zyx-dirtystar.github.io/marketing-faculty-atlas/#/coverage) are produced from the same merged data as the profile pages. Python collectors in [scripts](../scripts) use local JSONL caches. The profile reader and public paper reader use Beautiful Soup, and PDF text extraction uses `pdftotext` when available. Keep downloaded source text in the local cache. Source locations, bibliographic metadata, derived claims and access outcomes are the release artifacts.

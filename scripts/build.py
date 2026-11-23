@@ -98,6 +98,7 @@ def make_catalog(faculty, works, authors, evidence, taxonomy):
                     for level in LEVELS}
             papers.append({**paper, "authorship": identity, "evidence": marks,
                            "listing_url": link.get("listing_url"), "discovery_method": link.get("discovery_method"),
+                           "registered_affiliation": link.get("registered_affiliation"),
                            "byline_check": link.get("followup_byline"), "identity_source": link.get("identity_source")})
         status = "no_papers"
         if tag_counts[REVIEWED]:

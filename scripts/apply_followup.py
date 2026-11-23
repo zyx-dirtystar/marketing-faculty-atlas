@@ -123,6 +123,8 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
                                     "verification_url": row["verification_url"],
                                     "discovery_method": row["discovery_method"],
                                     "followup_batch": path.stem})
+            if row.get("registered_affiliation"):
+                links[pid, wid]["registered_affiliation"] = row["registered_affiliation"]
         for row in batch.get("faculty", []):
             pid = row["person_id"]
             check(pid in missing, f"Publication search outside fixed cohort: {pid}")
