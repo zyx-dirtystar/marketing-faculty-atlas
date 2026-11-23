@@ -30,6 +30,7 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
     links = {(row["person_id"], row["paper_id"]): row for row in authors}
     by_person = defaultdict(dict)
     checks, searches, tested = {}, {}, {}
+    corrections = defaultdict(dict)
     batches = []
     tags = {tag for group in taxonomy.values() for tag in group}
 
@@ -45,12 +46,15 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
         for row in batch.get("publications", []):
             pid = row["person_id"]
             title = row["title"]
-            wid = "doi:" + row["doi"]
-            check(pid in missing and href(row["listing_url"]) and href(row["verification_url"]),
+            doi = row.get("doi")
+            wid = "doi:" + doi if doi else row["paper_id"]
+            paper_url = "https://doi.org/" + doi if doi else row["verification_url"]
+            check(pid in missing and (doi or wid.startswith("source:")) and
+                  href(row["listing_url"]) and href(row["verification_url"]),
                   f"Unverifiable discovered publication: {pid} / {wid}")
             paper = works.setdefault(wid, {
                 "id": wid, "title": title, "year": row["year"], "authors": row["authors"],
-                "doi": row["doi"], "venue": row["venue"], "url": "https://doi.org/" + row["doi"],
+                "doi": doi, "venue": row["venue"], "url": paper_url,
                 "status": row["status"], "versions": [], "discovery": "faculty_publications",
                 "abstract_status": "unavailable", "openalex_url": "", "retracted": False,
             })
@@ -63,11 +67,16 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
                 links[pid, wid] = link
             links[pid, wid].update({"listing_url": row["listing_url"],
                                     "verification_url": row["verification_url"],
+                                    "discovery_method": row["discovery_method"],
                                     "followup_batch": path.stem})
         for row in batch.get("faculty", []):
             pid = row["person_id"]
             check(pid in missing, f"Publication search outside fixed cohort: {pid}")
-            searches[pid] = {**row, "batch": path.stem, "checked_at": date}
+            previous = searches.get(pid, {})
+            prior_sources = previous.get("sources", [])
+            combined = {(item["role"], item["url"]): item for item in [*prior_sources, *row["sources"]]}
+            searches[pid] = {**previous, **row, "sources": list(combined.values()),
+                             "batch": path.stem, "checked_at": date}
         for mark in batch.get("evidence", []):
             wid, pid = mark["paper_id"], mark["person_id"]
             level = mark["level"]
@@ -83,10 +92,21 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
             pid, wid = decision["person_id"], decision["paper_id"]
             check(pid in methods and wid in methods[pid], f"Invalid byline check: {pid} / {wid}")
             by_person[pid][wid] = decision["state"]
+            links[pid, wid]["followup_byline"] = decision["state"]
+        for row in batch.get("corrections", []):
+            wid, tag = row["paper_id"], row["tag"]
+            check(wid in queue and tag in tags and href(row["source"]), f"Invalid method correction: {row}")
+            corrections[wid][tag] = row
 
-    evidence.extend(tested.values())
+    for wid, row in checks.items():
+        works[wid]["followup_check"] = row
+    for wid, tags_removed in corrections.items():
+        works[wid]["method_corrections"] = list(tags_removed.values())
+    evidence[:] = [row for row in [*evidence, *tested.values()]
+                   if row["level"] == REVIEWED or row["tag"] not in corrections.get(row["paper_id"], {})]
+
     reviewed_people = {pid for pid, _, _, level in tested if level == REVIEWED}
-    primary_people = {pid for pid, _, _, level in tested if level == PRIMARY}
+    primary_people = {row["person_id"] for row in evidence if row["level"] == PRIMARY}
     publication_counts = Counter(pid for (pid, _), link in links.items() if "followup_batch" in link)
     rows = []
     for pid, papers in methods.items():
@@ -113,6 +133,7 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
         "method_cohort": len(methods), "publication_cohort": len(missing),
         "queued_works": len(queue), "works_checked": len(checks),
         "paper_outcomes": Counter(row["state"] for row in checks.values()),
+        "method_corrections": sum(len(rows) for rows in corrections.values()),
         "method_faculty_attempted": sum(any(wid in checks for wid in papers) for papers in methods.values()),
         "method_faculty_all_queued_papers_checked": sum(all(wid in checks for wid in papers) for papers in methods.values()),
         "method_faculty_with_manual_evidence": len(reviewed_people & set(methods)),

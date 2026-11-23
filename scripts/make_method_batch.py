@@ -18,8 +18,10 @@ def exact_name(left, right):
         return False
     if a == b:
         return len(a) >= 2
+    particles = {"van", "von", "de", "da", "del", "der", "di", "den", "du"}
+    middle_a, middle_b = ([part[0] for part in parts[1:-1] if part not in particles] for parts in (a, b))
     return (min(len(a), len(b)) >= 2 and a[-1] == b[-1] and len(a[0]) > 1 and a[0] == b[0]
-            and all(x[0] == y[0] for x, y in zip(a[1:-1], b[1:-1])))
+            and all(x == y for x, y in zip(middle_a, middle_b)))
 
 
 def record_names(work):
@@ -47,12 +49,16 @@ def main():
     parser.add_argument("sources", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--date", required=True)
+    parser.add_argument("--incremental", action="store_true")
     args = parser.parse_args()
     root = ROOT / "data"
     cohorts = load(root / "followup/cohorts.json")
-    manual = {row["paper_id"] for path in (root / "followup").glob("batch-*.json")
-              if path.resolve() != args.output.resolve() for row in load(path).get("evidence", [])
-              if row["level"] == REVIEWED}
+    prior = [load(path) for path in sorted((root / "followup").glob("batch-*.json"))
+             if path.resolve() != args.output.resolve()]
+    manual = {row["paper_id"] for batch in prior for row in batch.get("evidence", []) if row["level"] == REVIEWED}
+    prior_marks = {(row["person_id"], row["paper_id"], row["tag"]): row for batch in prior
+                   for row in batch.get("evidence", []) if row["level"] == PRIMARY}
+    prior_outcomes = {row["paper_id"]: row["state"] for batch in prior for row in batch.get("papers", [])}
     works, faculty, schools = (load(root / f"{name}.json") for name in ("papers", "faculty", "schools"))
     roster_names = Counter(tuple(words(person["name"])) for person in faculty.values())
     registry, sources = cache_rows(args.registry), cache_rows(args.sources)
@@ -99,6 +105,11 @@ def main():
                 evidence.append({"person_id": pid, "paper_id": wid, "level": PRIMARY,
                                  "source": source, "locator": f"{location}, sentence {item['sentence']}", **item})
 
+    if args.incremental:
+        papers = [row for row in papers if prior_outcomes.get(row["paper_id"]) != row["state"]]
+        evidence = [row for row in evidence if (row["person_id"], row["paper_id"], row["tag"]) not in prior_marks]
+        additions = {row["paper_id"] for row in papers + evidence}
+        byline = [row for row in byline if row["paper_id"] in additions]
     save(args.output, {"checked_at": args.date, "summary": "DOI and authorship checks with explicit primary-abstract methods.",
                        "papers": papers, "author_checks": byline, "evidence": evidence})
     print(Counter(paper["state"] for paper in papers))

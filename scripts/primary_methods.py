@@ -2,10 +2,10 @@
 
 import re
 
-VERSION = "primary-abstract-1.0"
+VERSION = "primary-abstract-1.1"
 ACTION = re.compile(r"\b(?:this (?:study|paper|research|article)|we|our (?:study|research|results|data)|"
                     r"the authors?|i (?:use|conduct|estimate|develop)|using|based on|with data from|"
-                    r"evidence from|results from|(?:a|two|three|four|five|six|seven) studies|"
+                    r"evidence from|results from|(?:multiple|two|three|four|five|six|seven|eight|nine) studies|"
                     r"data (?:from|collected)|conducted|carried out|participants? (?:were|are)|"
                     r"was (?:conducted|tested)|are (?:reported|used)|was used)\b", re.I)
 BACKGROUND = re.compile(r"\b(?:previous (?:research|studies)|prior (?:research|studies)|the literature|"
@@ -14,7 +14,8 @@ BACKGROUND = re.compile(r"\b(?:previous (?:research|studies)|prior (?:research|s
 
 RULES = {
     "field": (r"\b(?:field|in.field) (?:experiments?|trials?)\b", "Field experiment"),
-    "lab": (r"(?<!online )\b(?:laboratory|lab) (?:experiments?|studies)\b", "Laboratory experiment"),
+    "lab": (r"(?<!online )\b(?:laboratory|lab) (?:experiments?|stud(?:y|ies))\b|"
+            r"\bcontrolled lab(?:oratory)? setting\b", "Laboratory experiment or controlled lab study"),
     "online": (r"\bonline (?:lab(?:oratory)?|vignette|survey) (?:experiments?|studies|study)\b|"
                r"\b(?:online|web.based) experiments?\b[^.;]{0,100}\b(?:participants?|respondents?|vignettes?|survey|"
                r"prolific|mechanical turk)\b", "Controlled online experiment"),
@@ -45,11 +46,19 @@ RULES = {
     "reduced_form": (r"\breduced.form (?:estimators?|estimation|regressions?|econometric\w*|approach|models?)\b",
                      "Reduced-form econometric analysis"),
     "behavioral_experiment": (r"\bparticipants?\b[^.;]{0,70}\brandomly assigned\b|"
-                              r"\b(?:behavioral|laboratory|lab) experiments?\b", "Behavioral experiment"),
+                              r"\b(?:behavioral|laboratory|lab) experiments?\b|"
+                              r"\b(?:experimental studies|controlled experiments?)\b[^.;]{0,110}\b"
+                              r"(?:consumers?|participants?|purchase intentions?|consumer behavior)\b",
+                              "Behavioral experiment"),
     "qualitative": (r"\b(?:semi.structured interviews?|ethnograph\w+|grounded theory coding|qualitative interviews?)\b",
                     "Qualitative data collection or analysis"),
     "mixed_methods": (r"\bmixed.methods? (?:design|study|research|approach|analysis)\b", "Mixed-methods design"),
     "meta_analysis": (r"\bmeta.analys(?:is|es|tic)\b", "Meta-analysis"),
+    "conjoint": (r"\b(?:choice.based conjoint|conjoint (?:analysis|task|design|study))\b", "Conjoint analysis"),
+    "sem": (r"\b(?:structural equation modell?ing|structural equation model|latent variable modell?ing)\b",
+            "Structural equation or latent-variable modeling"),
+    "bayesian": (r"\b(?:hierarchical Bayesian|Bayesian hierarchical) (?:model|method|framework|approach)\b",
+                 "Hierarchical Bayesian estimation"),
     "observational": (r"\b(?:observational (?:data|records)|scanner (?:data|panel)|"
                       r"(?:sales|transaction|household purchase) (?:data|records|panel))\b", "Observed records or panel data"),
     "quasi": (r"\b(?:natural experiment|quasi.experiment\w*|exogenous shock)\b", "Quasi-experimental variation"),
@@ -94,7 +103,8 @@ PARENTS = {"demand_estimation": ("structural", "empirical"), "causal_ml": ("ml",
            **{tag: ("empirical",) for tag in ("rct", "field", "lab", "online", "structural", "observational", "quasi")}}
 
 STUDY_CONTEXT = re.compile(r"\b(?:results?|show\w*|report\w*|test\w*|demonstrat\w*|reveal\w*|analy[sz]\w*|"
-                           r"collected|implement\w*|consist\w*|identif\w*)\b", re.I)
+                           r"collected|implement\w*|consist\w*|identif\w*|examin\w*|compar\w*|"
+                           r"uncover\w*|provide\w* (?:support|evidence))\b", re.I)
 ML_CONTEXT = re.compile(r"\b(?:use\w*|apply|develop\w*|fit\w*|employ\w*|implement\w*|train\w*|"
                         r"algorithm|model|approach|predict\w*|estimat\w*)\b", re.I)
 ML_SUBJECT = re.compile(r"\b(?:effect|perception|adoption|attitudes?|trust|impact)\b[^.;]{0,30}"

@@ -12,7 +12,10 @@
     "behavioral_experiment": "Behavioral experiments",
     "qualitative": "Qualitative methods",
     "mixed_methods": "Mixed methods",
-    "meta_analysis": "Meta-analysis"
+    "meta_analysis": "Meta-analysis",
+    "conjoint": "Conjoint analysis",
+    "sem": "Structural equation modeling",
+    "bayesian": "Bayesian estimation"
   },
   "objective": {
     "empirical": "Empirical",

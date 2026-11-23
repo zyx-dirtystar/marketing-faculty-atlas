@@ -93,7 +93,8 @@ def make_catalog(faculty, works, authors, evidence, taxonomy):
                     level: sorted({mark["tag"] for mark in marks if mark["level"] == level})
                     for level in LEVELS}
             papers.append({**paper, "authorship": identity, "evidence": marks,
-                           "listing_url": link.get("listing_url")})
+                           "listing_url": link.get("listing_url"), "discovery_method": link.get("discovery_method"),
+                           "byline_check": link.get("followup_byline")})
         status = "no_papers"
         if tag_counts[REVIEWED]:
             status = REVIEWED

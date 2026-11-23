@@ -155,7 +155,8 @@ function paperCard(paper, tag) {
   const status = [
     paper.year, roleLabels[paper.status], paper.venue,
     paper.discovery === "openalex_exact_orcid" ? "OpenAlex · exact ORCID" : "",
-    paper.listing_url ? "Faculty publication source" : "",
+    paper.discovery_method === "official_affiliation_index" ? "Paper affiliation matched to faculty profile" :
+      paper.listing_url ? "Faculty publication source" : "",
     paper.retracted ? "Retracted" : "",
     paper.authorship === "review_needed" ? "Authorship needs review" : "",
   ].filter(Boolean).join(" · ");
@@ -163,8 +164,14 @@ function paperCard(paper, tag) {
     <small>${escape(status)}</small>
     <h3>${link(paper.url, paper.title) || escape(paper.title)}</h3>
     <p class="authors">${escape(paper.authors.join(", "))}</p>
-    ${paper.listing_url ? `<small>${link(paper.listing_url, "Publication listing or CV")}</small>` : ""}
+    ${paper.listing_url ? `<small>${link(paper.listing_url, paper.discovery_method === "official_affiliation_index" ?
+      "Faculty profile" : "Publication listing or CV")}</small>` : ""}
     ${marks.length ? `<details${tag ? " open" : ""}><summary>${marks.length} evidence entries</summary><ul class="evidence">${marks.map(evidenceRow).join("")}</ul></details>` : ""}
+    ${paper.followup_check ? `<details><summary>Follow-up source check</summary>
+      <p>${link(paper.followup_check.source, paper.followup_check.state.replaceAll("_", " "))}
+      ${paper.byline_check ? " · " + escape(paper.byline_check.replaceAll("_", " ")) : ""}</p></details>` : ""}
+    ${paper.method_corrections?.length ? `<details><summary>Method corrections</summary><ul>
+      ${paper.method_corrections.map((row) => `<li>${escape(row.note)} ${link(row.source, "Source")}</li>`).join("")}</ul></details>` : ""}
     ${paper.versions.length > 1 ? `<details><summary>${paper.versions.length} source records</summary><ul>${paper.versions.map((v) =>
     `<li>${escape(v.year)} ${escape(roleLabels[v.status])} · ${link(v.url, v.title) || escape(v.title)}</li>`).join("")}</ul></details>` : ""}
   </article>`;
@@ -263,7 +270,8 @@ function coverage() {
       <p>${format(report.followup.method_faculty_attempted)} of ${format(report.followup.method_cohort)} faculty with method leads have at least one paper checked.
       ${format(report.followup.method_faculty_all_queued_papers_checked)} have results for every queued paper.</p>
       <p>${format(report.followup.method_faculty_with_manual_evidence)} faculty have a source review and
-      ${format(report.followup.method_faculty_with_primary_abstract_only)} more have methods documented in a primary abstract.</p>
+      ${format(report.followup.method_faculty_with_primary_abstract_only)} more have methods documented in a primary abstract.
+      Primary abstracts are checked with rules for explicitly stated methods.</p>
       <p>${format(report.followup.publication_faculty_attempted)} of ${format(report.followup.publication_cohort)} publication searches logged.
       ${format(report.followup.publication_faculty_with_papers)} faculty have linked works from this follow-up.</p>
       <p><a href="download/followup.csv">Follow-up CSV</a> · <a href="download/followup.json">Follow-up JSON</a></p>

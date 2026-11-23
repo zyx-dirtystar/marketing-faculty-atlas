@@ -67,3 +67,24 @@ test("public profiles and exports preserve provenance and guard disputed authors
   assert.equal(exportRows.length, people.length);
   assert.equal(load("download/authorships.json").length, audit.coverage.authorship_pairs);
 });
+
+test("published follow-up reconciles the two fixed cohorts and preserves evidence levels", () => {
+  const progress = audit.followup;
+  assert.equal(progress.method_cohort, 777);
+  assert.equal(progress.publication_cohort, 469);
+  const rows = load("download/followup.json");
+  assert.equal(rows.filter((row) => row.cohort === "method_review").length, 777);
+  assert.equal(rows.filter((row) => row.cohort === "publication_search").length, 469);
+  assert.equal(rows.filter((row) => row.cohort === "method_review" &&
+    row.papers_queued === row.papers_checked).length, progress.method_faculty_all_queued_papers_checked);
+  const narayandas = load("people/harvard-university.json")["das-narayandas--harvard"];
+  const aiStudy = narayandas.papers.find((paper) => paper.doi === "10.1287/mnsc.2022.03920");
+  assert(aiStudy.evidence.some((mark) => mark.tag === "field" && mark.level === reviewed));
+  assert(!aiStudy.evidence.some((mark) => mark.tag === "ml"));
+  const saunders = load("people/monash-university.json")["stephen-saunders--monash"];
+  const sem = saunders.papers.find((paper) => paper.doi === "10.1108/ijqrm-06-2019-0198");
+  assert(sem.evidence.some((mark) => mark.tag === "sem" && mark.level === reviewed));
+  assert(!sem.evidence.some((mark) => mark.tag === "structural"));
+  const janssen = load("people/universite-libre-de-bruxelles.json")["catherine-janssen--ulb"];
+  assert(janssen.papers.some((paper) => paper.doi === "10.1002/jcpy.1345" && paper.listing_url));
+});

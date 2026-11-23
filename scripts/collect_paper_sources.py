@@ -17,8 +17,11 @@ ABSTRACT = re.compile(r"(?:abstract|summary)", re.I)
 
 
 def match_title(title, candidate):
+    title, candidate = (re.sub(r"^express:\s*", "", text, flags=re.I) for text in (title, candidate))
     key, other = title_key(title), title_key(candidate)
+    lead, other_lead = title_key(title.split(":")[0]), title_key(candidate.split(":")[0])
     return bool(len(key) >= 12 and (key == other or
+                len(lead) >= 25 and lead == other_lead and (lead == key or lead == other) or
                 (min(len(key), len(other)) >= 45 and (key in other or other in key)
                  and min(len(key), len(other)) / max(len(key), len(other)) > .84)))
 
