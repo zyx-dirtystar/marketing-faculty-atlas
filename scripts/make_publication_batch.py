@@ -69,10 +69,11 @@ def publication(registry, person, doi, source, method, citation=None):
     if citation and (len(title_key(title)) < 24 or title_key(title) not in title_key(citation)):
         return None
     date_parts = (registry.get("published") or {}).get("date-parts", [[None]])
+    working_paper = type_ == "posted-content" or doi.startswith("10.2139/ssrn.")
     return {"person_id": person["id"], "doi": doi, "title": title, "authors": names,
             "year": next(iter(date_parts[0]), None),
             "venue": next(iter(registry.get("container-title", [])), None),
-            "status": "wp" if type_ == "posted-content" else "pub",
+            "status": "wp" if working_paper else "pub",
             "discovery_method": method, "listing_url": stable_url(source),
             "verification_url": "https://doi.org/" + doi}
 
