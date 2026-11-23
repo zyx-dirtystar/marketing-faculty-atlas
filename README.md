@@ -39,7 +39,7 @@ Use the new observation date when refreshing. Abstract accession and ORCID calls
 
 Edit the reviewer-maintained [paper register](data/pilot.json) to add or correct a paper-level claim, establish a version alias, or verify another faculty byline. The register is applied during sync and remains separate from the generated snapshot. To report a correction, open an issue with the faculty profile, DOI and evidence.
 
-Follow-up reviews and publication searches are maintained in [data/followup](data/followup). The static build validates and applies each batch without modifying the upstream snapshot. Source collectors use local caches and the build runs from committed data alone.
+Follow-up reviews and publication searches are maintained in [data/followup](data/followup). The static build validates and applies each batch without modifying the upstream snapshot. Source collectors use local caches and the build runs from committed data alone. [Follow-up procedures](docs/followup.md)
 
 ## Attribution
 

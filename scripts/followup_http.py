@@ -65,7 +65,8 @@ class Network:
 
 
 def plain_markup(value):
-    return " ".join(unescape(re.sub(r"<[^>]*>", " ", value or "")).split())
+    spaced = re.sub(r"</?(?:jats:)?(?:p|sec|title|div|br|li|list-item)\b[^>]*>", " ", value or "", flags=re.I)
+    return " ".join(unescape(re.sub(r"<[^>]*>", "", spaced)).split())
 
 
 def cache_rows(path):

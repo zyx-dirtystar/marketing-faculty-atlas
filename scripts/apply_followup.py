@@ -23,7 +23,12 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
     cohort = load(cohorts_path)
     methods = cohort["method_review"]
     missing = set(cohort["publication_search"])
-    queue = set(cohort["paper_queue"])
+    original_queue = set(cohort["paper_queue"])
+    extra_plan = directory / "alternate-method-plan.json"
+    extra_methods = load(extra_plan)["method_review"] if extra_plan.exists() else {}
+    check(set(extra_methods) <= set(methods), "Alternate review is outside the methods cohort")
+    extra_queue = {wid for rows in extra_methods.values() for wid in rows}
+    queue = original_queue | extra_queue
     check(len(methods) == 777 and len(missing) == 469 and not missing.intersection(methods),
           "The frozen follow-up cohorts changed")
     check((set(methods) | missing) <= set(faculty) and queue <= set(works), "Follow-up sources changed")
@@ -41,6 +46,8 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
         for item in batch.get("papers", []):
             wid = item["paper_id"]
             check(wid in queue, f"Paper outside fixed cohort: {wid}")
+            if checks.get(wid, {}).get("state", "").startswith("manual_") and not item["state"].startswith("manual_"):
+                continue
             checks[wid] = {"paper_id": wid, "state": item["state"], "source": item.get("source"),
                            "checked_at": date, "batch": path.stem}
         for row in batch.get("publications", []):
@@ -90,7 +97,10 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
             tested[pid, wid, mark["tag"], level] = {**mark, "checked_at": date, "batch": path.stem}
         for decision in batch.get("author_checks", []):
             pid, wid = decision["person_id"], decision["paper_id"]
-            check(pid in methods and wid in methods[pid], f"Invalid byline check: {pid} / {wid}")
+            check(pid in methods and (wid in methods[pid] or wid in extra_methods.get(pid, [])),
+                  f"Invalid byline check: {pid} / {wid}")
+            if by_person[pid].get(wid, "").startswith("manual_") and not decision["state"].startswith("manual_"):
+                continue
             by_person[pid][wid] = decision["state"]
             links[pid, wid]["followup_byline"] = decision["state"]
         for row in batch.get("corrections", []):
@@ -113,6 +123,7 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
         complete = sum(wid in checks for wid in papers)
         row = {"person_id": pid, "cohort": "method_review", "papers_queued": len(papers),
                "papers_checked": complete, "byline_checks": Counter(by_person[pid].values()),
+               "alternate_papers_checked": sum(wid in checks for wid in extra_methods.get(pid, [])),
                "state": ("source_reviewed" if pid in reviewed_people else
                          "primary_abstract" if pid in primary_people else
                          "sources_checked" if complete == len(papers) else
@@ -131,7 +142,9 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
     return {
         "baseline": cohort["baseline"], "batches": batches,
         "method_cohort": len(methods), "publication_cohort": len(missing),
-        "queued_works": len(queue), "works_checked": len(checks),
+        "queued_works": len(original_queue), "works_checked": len(original_queue & checks.keys()),
+        "alternate_works_checked": len(extra_queue & checks.keys()),
+        "alternate_faculty_attempted": sum(any(wid in checks for wid in papers) for papers in extra_methods.values()),
         "paper_outcomes": Counter(row["state"] for row in checks.values()),
         "method_corrections": sum(len(rows) for rows in corrections.values()),
         "method_faculty_attempted": sum(any(wid in checks for wid in papers) for papers in methods.values()),
@@ -142,4 +155,7 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
         "publication_faculty_with_papers": len(publication_counts),
         "publication_faculty_outcomes": Counter(row["state"] for row in rows if row["cohort"] == "publication_search"),
         "publication_links_found": sum(publication_counts.values()),
+        "distinct_publications_found": len({wid for (_, wid), link in links.items() if "followup_batch" in link}),
+        "publication_links_by_source": Counter(link["discovery_method"] for link in links.values()
+                                               if "followup_batch" in link),
     }, rows + list(checks.values())

@@ -118,12 +118,13 @@ def main():
     parser.add_argument("--deps", type=Path)
     parser.add_argument("--locations", type=Path)
     parser.add_argument("--discover-locations", action="store_true")
+    parser.add_argument("--queue", type=Path, default=ROOT / "data/followup/cohorts.json")
     args = parser.parse_args()
     if args.deps:
         sys.path.insert(0, str(args.deps.resolve()))
     from bs4 import BeautifulSoup
 
-    entries = load(ROOT / "data/followup/cohorts.json")["paper_queue"]
+    entries = load(args.queue)["paper_queue"]
     papers = load(ROOT / "data/papers.json")
     registry = cache_rows(args.registry)
     locations = load(args.locations) if args.locations and args.locations.exists() else {}

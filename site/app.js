@@ -239,7 +239,8 @@ function followupPanel(row) {
   if (!row) return "";
   if (row.cohort === "method_review") {
     return `<details><summary>Follow-up paper checks</summary>
-      <p>${format(row.papers_checked)} of ${format(row.papers_queued)} queued papers checked.</p></details>`;
+      <p>${format(row.papers_checked)} of ${format(row.papers_queued)} queued papers checked.
+      ${row.alternate_papers_checked ? `${format(row.alternate_papers_checked)} additional papers checked.` : ""}</p></details>`;
   }
   const sourceStates = { identity_checked: "Profile or CV read", identity_unconfirmed: "Identity needs review",
     connection_error: "Connection failed", pdf_text_unavailable: "PDF text unavailable" };
@@ -268,12 +269,14 @@ function coverage() {
     ${report.followup ? `<section class="panel coverage">
       <h2>Follow-up research</h2>
       <p>${format(report.followup.method_faculty_attempted)} of ${format(report.followup.method_cohort)} faculty with method leads have at least one paper checked.
-      ${format(report.followup.method_faculty_all_queued_papers_checked)} have results for every queued paper.</p>
+      ${format(report.followup.method_faculty_all_queued_papers_checked)} have results for every queued paper.
+      ${report.followup.alternate_works_checked ? `${format(report.followup.alternate_works_checked)} additional papers were checked.` : ""}</p>
       <p>${format(report.followup.method_faculty_with_manual_evidence)} faculty have a source review and
       ${format(report.followup.method_faculty_with_primary_abstract_only)} more have methods documented in a primary abstract.
       Primary abstracts are checked with rules for explicitly stated methods.</p>
       <p>${format(report.followup.publication_faculty_attempted)} of ${format(report.followup.publication_cohort)} publication searches logged.
-      ${format(report.followup.publication_faculty_with_papers)} faculty have linked works from this follow-up.</p>
+      ${format(report.followup.publication_faculty_with_papers)} faculty have linked works from this follow-up.
+      ${format(report.followup.distinct_publications_found)} distinct works were linked.</p>
       <p><a href="download/followup.csv">Follow-up CSV</a> · <a href="download/followup.json">Follow-up JSON</a></p>
     </section>` : ""}
     <section class="panel coverage">

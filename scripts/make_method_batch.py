@@ -50,12 +50,20 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--date", required=True)
     parser.add_argument("--incremental", action="store_true")
+    parser.add_argument("--alternate-plan", type=Path)
     args = parser.parse_args()
     root = ROOT / "data"
     cohorts = load(root / "followup/cohorts.json")
+    method_review = cohorts["method_review"]
+    paper_queue = cohorts["paper_queue"]
+    if args.alternate_plan:
+        alternate = load(args.alternate_plan)
+        method_review, paper_queue = alternate["method_review"], alternate["paper_queue"]
     prior = [load(path) for path in sorted((root / "followup").glob("batch-*.json"))
              if path.resolve() != args.output.resolve()]
     manual = {row["paper_id"] for batch in prior for row in batch.get("evidence", []) if row["level"] == REVIEWED}
+    manual.update(row["paper_id"] for batch in prior for row in batch.get("papers", [])
+                  if row["state"].startswith("manual_"))
     prior_marks = {(row["person_id"], row["paper_id"], row["tag"]): row for batch in prior
                    for row in batch.get("evidence", []) if row["level"] == PRIMARY}
     prior_outcomes = {row["paper_id"]: row["state"] for batch in prior for row in batch.get("papers", [])}
@@ -63,12 +71,12 @@ def main():
     roster_names = Counter(tuple(words(person["name"])) for person in faculty.values())
     registry, sources = cache_rows(args.registry), cache_rows(args.sources)
     people_by_work = defaultdict(list)
-    for pid, ids in cohorts["method_review"].items():
+    for pid, ids in method_review.items():
         for wid in ids:
             people_by_work[wid].append(pid)
 
     papers, byline, evidence = [], [], []
-    for wid in cohorts["paper_queue"]:
+    for wid in paper_queue:
         if wid in manual:
             continue
         paper = works[wid]
