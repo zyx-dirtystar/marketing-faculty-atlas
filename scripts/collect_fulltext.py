@@ -141,6 +141,7 @@ def main():
     parser.add_argument("locations", type=Path)
     parser.add_argument("cache", type=Path)
     parser.add_argument("--deps", type=Path)
+    parser.add_argument("--targeted-locations", type=Path)
     args = parser.parse_args()
     if args.deps:
         sys.path.insert(0, str(args.deps.resolve()))
@@ -150,13 +151,17 @@ def main():
     papers = load(ROOT / "data/papers.json")
     titles = {papers[wid]["doi"]: papers[wid]["title"] for wid in keys if papers[wid].get("doi")}
     network = Network()
-    locations = load(args.locations) if args.locations.exists() else {}
-    remaining = [doi for doi in titles if doi not in locations]
-    groups = [remaining[i:i + 35] for i in range(0, len(remaining), 35)]
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        for result in pool.map(lambda group: get_locations(network, group), groups):
-            locations.update(result)
-    save(args.locations, locations)
+    if args.targeted_locations:
+        locations = load(args.targeted_locations)
+        titles = {doi: title for doi, title in titles.items() if doi in locations}
+    else:
+        locations = load(args.locations) if args.locations.exists() else {}
+        remaining = [doi for doi in titles if doi not in locations]
+        groups = [remaining[i:i + 35] for i in range(0, len(remaining), 35)]
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            for result in pool.map(lambda group: get_locations(network, group), groups):
+                locations.update(result)
+        save(args.locations, locations)
     print(f"{sum(bool(row) for row in locations.values())}/{len(titles)} works with possible open full text.", flush=True)
 
     def read(doi):

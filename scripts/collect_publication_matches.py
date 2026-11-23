@@ -29,7 +29,9 @@ def pipeline(faculty_results, faculty):
         stack = {}
         for source in row["sources"]:
             for snippet in source["citations"]:
-                priority = citation_priority(snippet, faculty[pid]["name"])
+                person = faculty[pid]
+                priority = max(citation_priority(snippet, name)
+                               for name in [person["name"], *person.get("publication_aliases", [])])
                 if priority >= 3:
                     stack.setdefault(snippet, (priority, source["url"]))
         ordered = sorted(stack.items(), key=lambda item: (-item[1][0], item[0]))
@@ -45,9 +47,12 @@ def main():
     parser.add_argument("doi_cache", type=Path)
     parser.add_argument("citation_cache", type=Path)
     parser.add_argument("--review-registry", type=Path)
+    parser.add_argument("--aliases", type=Path)
     parser.add_argument("--retry", action="store_true")
     args = parser.parse_args()
     persons = load(ROOT / "data/faculty.json")
+    for pid, names in (load(args.aliases).items() if args.aliases else []):
+        persons[pid]["publication_aliases"] = names
     dois, citations = pipeline(cache_rows(args.faculty_sources), persons)
     registry = cache_rows(args.review_registry) if args.review_registry else {}
     network = Network()
@@ -55,7 +60,9 @@ def main():
     def read_citation(key):
         row = citations[key]
         person = persons[row["person_id"]]
-        params = {"query.bibliographic": row["snippet"][:300], "query.author": person["name"],
+        names = [person["name"], *person.get("publication_aliases", [])]
+        query_name = max(names, key=lambda name: citation_priority(row["snippet"], name))
+        params = {"query.bibliographic": row["snippet"][:300], "query.author": query_name,
                   "rows": 4, "select": "DOI,title,author,published,container-title,type,URL"}
         outcome, body = network.get("https://api.crossref.org/works?" + urlencode(params), "application/json")
         records = json.loads(body).get("message", {}).get("items", []) if body else []

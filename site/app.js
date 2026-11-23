@@ -154,9 +154,11 @@ function evidenceRow(mark) {
 
 function paperCard(paper, tag) {
   const marks = tag ? paper.evidence.filter((mark) => mark.tag === tag) : paper.evidence;
+  const byCv = paper.discovery_method === "cv_working_paper";
   const status = [
     paper.year, roleLabels[paper.status], paper.venue,
     paper.discovery === "openalex_exact_orcid" ? "OpenAlex · exact ORCID" : "",
+    byCv ? "Listed in public CV" :
     paper.discovery_method === "official_affiliation_index" ? "Paper affiliation matched to faculty profile" :
       paper.listing_url ? "Faculty publication source" : "",
     paper.retracted ? "Retracted" : "",
@@ -167,8 +169,8 @@ function paperCard(paper, tag) {
     <h3>${link(paper.url, paper.title) || escape(paper.title)}</h3>
     <p class="authors">${escape(paper.authors.join(", "))}</p>
     ${paper.identity_source ? `<small>${link(paper.identity_source, "Authorship decision source")}</small>` : ""}
-    ${paper.listing_url ? `<small>${link(paper.listing_url, paper.discovery_method === "official_affiliation_index" ?
-      "Faculty profile" : "Publication listing or CV")}</small>` : ""}
+    ${paper.listing_url ? `<small>${link(paper.listing_url, byCv ? "Public CV" :
+      paper.discovery_method === "official_affiliation_index" ? "Faculty profile" : "Publication listing or source")}</small>` : ""}
     ${marks.length ? `<details${tag ? " open" : ""}><summary>${marks.length} evidence entries</summary><ul class="evidence">${marks.map(evidenceRow).join("")}</ul></details>` : ""}
     ${paper.followup_check ? `<details><summary>Follow-up source check</summary>
       <p>${link(paper.followup_check.source, paper.followup_check.state.replaceAll("_", " "))}
@@ -291,7 +293,8 @@ function coverage() {
       <p>${format(report.followup.deep_review.methods_supported)} of ${format(report.followup.deep_review.method_faculty)} remaining method profiles now have evidence.
       ${format(report.followup.deep_review.fulltexts_read)} full texts read from ${format(report.followup.deep_review.fulltext_searches)} paper searches.</p>
       <p>${format(report.followup.deep_review.publication_searches)} of ${format(report.followup.deep_review.publication_faculty)} additional publication searches logged.
-      ${format(report.followup.deep_review.faculty_with_papers)} faculty now have linked works.</p>` : ""}
+      ${format(report.followup.deep_review.faculty_with_papers)} faculty now have linked works.
+      ${report.followup.deep_review.working_papers_only ? `${format(report.followup.deep_review.working_papers_only)} currently have working papers only.` : ""}</p>` : ""}
     </section>` : ""}
     <section class="panel coverage">
       <h2>Download data</h2>

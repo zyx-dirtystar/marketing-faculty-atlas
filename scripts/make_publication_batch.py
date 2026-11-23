@@ -11,7 +11,7 @@ from apply_followup import PRIMARY
 from followup_http import cache_rows, plain_markup
 from make_method_batch import exact_name, record_names
 from primary_methods import extract
-from sync import ROOT, href, load, save, title_key, url_key
+from sync import ROOT, href, load, orcid_key, save, title_key, url_key
 
 TYPES = {"journal-article", "posted-content", "proceedings-article"}
 
@@ -38,6 +38,8 @@ def owner_source(person, url, additional):
         return False
     trusted = [url_key(address) for address in additional if url_key(address)]
     urls = person["links"]
+    if (identifier := orcid_key(person.get("orcid"))) and key == identifier.lower():
+        return True
     for role in ("homepage_url", "cv_url", "profile_url"):
         if source_key := url_key(urls.get(role)):
             trusted.append(source_key)
@@ -52,7 +54,9 @@ def publication(registry, person, doi, source, method, citation=None):
         return None
     names = record_names(registry)
     accepted = [person["name"], *person.get("publication_aliases", [])]
-    if sum(any(exact_name(name, alias) for alias in accepted) for name in names) != 1:
+    identifier = orcid_key(person.get("orcid"))
+    orcid_match = identifier and sum(orcid_key(row.get("ORCID")) == identifier for row in registry.get("author", [])) == 1
+    if not orcid_match and sum(any(exact_name(name, alias) for alias in accepted) for name in names) != 1:
         return None
     title = plain_markup(registry["title"][0])
     if citation and (len(title_key(title)) < 24 or title_key(title) not in title_key(citation)):
@@ -74,6 +78,8 @@ def main():
     parser.add_argument("--affiliations", type=Path)
     parser.add_argument("--manual", type=Path)
     parser.add_argument("--extra-sources", type=Path)
+    parser.add_argument("--orcid-sources", type=Path)
+    parser.add_argument("--orcid-profiles", type=Path)
     parser.add_argument("--aliases", type=Path)
     parser.add_argument("--verified-sources", type=Path)
     parser.add_argument("--deep", action="store_true")
@@ -81,10 +87,12 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     sources = cache_rows(args.faculty_sources)
-    for pid, row in (cache_rows(args.extra_sources).items() if args.extra_sources else []):
-        initial = sources.get(pid, {"sources": [], "dois": {}})
-        sources[pid] = {**row, "sources": [*initial["sources"], *row["sources"]],
-                        "dois": {**initial["dois"], **row["dois"]}}
+    for path in (args.extra_sources, args.orcid_sources):
+        for pid, row in (cache_rows(path).items() if path else []):
+            initial = sources.get(pid, {"sources": [], "dois": {}})
+            dois = {doi: list(dict.fromkeys(initial["dois"].get(doi, []) + row["dois"].get(doi, [])))
+                    for doi in initial["dois"].keys() | row["dois"].keys()}
+            sources[pid] = {**row, "sources": [*initial["sources"], *row["sources"]], "dois": dois}
     registry = {}
     for file in args.registries:
         registry.update(cache_rows(file))
@@ -94,6 +102,9 @@ def main():
     affiliations = cache_rows(args.affiliations) if args.affiliations else {}
     manual = load(args.manual) if args.manual else {}
     faculty = load(ROOT / "data/faculty.json")
+    for pid, item in (load(args.orcid_profiles).items() if args.orcid_profiles else []):
+        if not faculty[pid].get("orcid"):
+            faculty[pid]["orcid"] = item["orcid"]
     verified_sources = load(args.verified_sources) if args.verified_sources else {}
     for pid, aliases in (load(args.aliases).items() if args.aliases else []):
         faculty[pid]["publication_aliases"] = aliases
@@ -130,7 +141,8 @@ def main():
                 continue
             metadata = registry.get(doi, {})
             record = metadata.get("work", {})
-            row = publication(record, author, doi, source_url, "faculty_doi")
+            discovery = "orcid_works" if urlsplit(source_url).hostname == "orcid.org" else "faculty_doi"
+            row = publication(record, author, doi, source_url, discovery)
             add(row, plain_markup(record.get("abstract")), metadata.get("url", ""))
         for citation in citations_by_person[pid]:
             if not trusted(citation["url"]):

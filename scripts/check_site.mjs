@@ -88,3 +88,26 @@ test("published follow-up reconciles the two fixed cohorts and preserves evidenc
   const janssen = load("people/universite-libre-de-bruxelles.json")["catherine-janssen--ulb"];
   assert(janssen.papers.some((paper) => paper.doi === "10.1002/jcpy.1345" && paper.listing_url));
 });
+
+test("deeper review preserves the cohorts, working papers and negative authorship decisions", () => {
+  const report = audit.followup.deep_review;
+  assert.equal(report.method_faculty, 84);
+  assert.equal(report.publication_faculty, 270);
+  assert.equal(report.publication_searches, report.publication_faculty);
+  const emil = people.find((row) => row.id === "emil-palikot--northeastern");
+  const contest = load(`people/${emil.school}.json`)[emil.id].papers
+    .find((paper) => paper.doi === "10.1007/s11129-026-09311-3");
+  assert.equal(contest.fulltext_check.state, "fulltext_read");
+  assert(contest.evidence.some((mark) => mark.tag === "rct" && mark.level === reviewed));
+  const kumar = people.find((row) => row.id === "amit-kumar--delaware");
+  const homonym = load(`people/${kumar.school}.json`)[kumar.id].papers
+    .find((paper) => paper.doi === "10.1016/j.aos.2025.101631");
+  assert.equal(homonym.authorship, "review_needed");
+  assert.deepEqual(homonym.evidence, []);
+  const gabriele = people.find((row) => row.id === "francesco-gabriele--hkust");
+  const drafts = load(`people/${gabriele.school}.json`)[gabriele.id].papers
+    .filter((paper) => paper.discovery_method === "cv_working_paper");
+  assert(drafts.length >= 2);
+  assert.equal(ids(drafts).size, drafts.length);
+  assert(drafts.every((paper) => paper.status === "wp"));
+});

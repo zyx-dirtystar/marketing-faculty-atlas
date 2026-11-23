@@ -59,7 +59,12 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
         for row in batch.get("fulltext_checks", []):
             wid = row["paper_id"]
             check(wid in deep_queue and href(row["source"]), f"Invalid full-text check: {wid}")
-            fulltext_checks[wid] = {**row, "checked_at": date, "batch": path.stem}
+            previous = fulltext_checks.get(wid, {})
+            best = previous if previous.get("state") == "fulltext_read" and row["state"] != "fulltext_read" else row
+            attempts = {(item["url"], item["status"]): item
+                        for item in [*previous.get("attempts", []), *row.get("attempts", [])]}
+            fulltext_checks[wid] = {**best, "checked_at": date, "batch": path.stem,
+                                    "attempts": list(attempts.values())}
         for item in batch.get("papers", []):
             wid = item["paper_id"]
             check(wid in queue, f"Paper outside fixed cohort: {wid}")
@@ -192,6 +197,10 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
                                                if pid in missing and "followup_batch" in link),
     }
     if deep_plan:
+        publication_statuses = defaultdict(set)
+        for (pid, wid), link in links.items():
+            if pid in deep_publications and "followup_batch" in link:
+                publication_statuses[pid].add(works[wid]["status"])
         report["deep_review"] = {
             "baseline": deep_plan["baseline"],
             "method_faculty": len(deep_methods),
@@ -203,6 +212,7 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
             "publication_faculty": len(deep_publications),
             "publication_searches": sum(searches.get(pid, {}).get("deep_review", False) for pid in deep_publications),
             "faculty_with_papers": sum(pid in publication_counts for pid in deep_publications),
+            "working_papers_only": sum(statuses == {"wp"} for statuses in publication_statuses.values()),
             "publication_outcomes": Counter(row["state"] for row in rows if row["person_id"] in deep_publications),
         }
     return report, rows + list(checks.values()) + [{**row, "check_kind": "fulltext"}
