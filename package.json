@@ -1,0 +1,8 @@
+{
+  "name": "marketing-faculty-atlas",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test scripts/check_site.mjs"
+  }
+}

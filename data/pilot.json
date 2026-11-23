@@ -1,0 +1,173 @@
+[
+  {
+    "doi": "10.1111/j.1756-2171.2010.00106.x",
+    "people": ["jean-pierre-dube--chicago", "guenter-j-hitsch--chicago"],
+    "source": "https://www.anderson.ucla.edu/documents/areas/fac/marketing/rossi_state_dependence.pdf",
+    "locator": "Abstract and the brand-choice models",
+    "claims": [
+      [["structural", "demand_estimation", "empirical", "observational"], "The authors estimate brand-choice models on household buying data to distinguish state dependence from persistent heterogeneity, search, and learning."],
+      [["brands", "choice", "search"], "The study explains repeat brand purchases and compares search to other mechanisms of consumer inertia."]
+    ]
+  },
+  {
+    "doi": "10.1287/mksc.1070.0305",
+    "people": ["jean-pierre-dube--chicago", "guenter-j-hitsch--chicago"],
+    "source": "https://www.jp-dube.com/research/papers/417full.pdf",
+    "locator": "Hierarchical Choice Model and Dynamic Category Pricing",
+    "claims": [
+      [["structural", "demand_estimation", "empirical", "observational"], "A hierarchical brand-choice model fits household purchase data and allows loyalty to change the utility of a brand."],
+      [["counterfactual", "pricing", "brands"], "The authors solve a retailer's dynamic pricing problem and compare optimal prices with and without model-implied loyalty."]
+    ]
+  },
+  {
+    "doi": "10.1086/720793",
+    "people": ["jean-pierre-dube--chicago", "sanjog-misra--chicago"],
+    "source": "https://www.journals.uchicago.edu/doi/10.1086/720793",
+    "locator": "Publisher abstract",
+    "claims": [
+      [["ml", "field", "rct", "empirical"], "The authors learn individualized pricing from a randomized pricing field experiment and validate the prices in the field."],
+      [["counterfactual", "pricing", "targeting", "welfare"], "Simulations compare profits and consumer welfare across levels of personalization and data granularity."]
+    ]
+  },
+  {
+    "doi": "10.1287/mksc.2019.1195",
+    "people": ["anna-tuchman--northwestern"],
+    "source": "https://pubsonline.informs.org/doi/10.1287/mksc.2019.1195",
+    "locator": "Publisher abstract",
+    "claims": [
+      [["structural", "demand_estimation", "empirical", "observational"], "The paper estimates a tobacco demand model with household heterogeneity and addiction using observed sales and television advertising."],
+      [["counterfactual", "advertising", "welfare"], "The estimated demand model is used to simulate the effect of a proposed ban on e-cigarette television advertising."]
+    ]
+  },
+  {
+    "doi": "10.1287/mksc.2023.0138",
+    "people": ["anna-tuchman--northwestern", "ilya-morozov--northwestern"],
+    "source": "https://pubsonline.informs.org/doi/10.1287/mksc.2023.0138",
+    "locator": "Abstract, experimental design and online appendix",
+    "claims": [
+      [["online", "behavioral_experiment", "causal", "empirical"], "Participants recruited through Mechanical Turk received different ad content in a controlled online bookstore environment created by the authors."],
+      [["advertising", "search"], "The study tracks how what an ad reveals changes the books a consumer searches for."]
+    ]
+  },
+  {
+    "doi": "10.1287/mksc.2018.1135",
+    "people": ["brett-r-gordon--stanford", "florian-zettelmeyer--northwestern"],
+    "source": "https://www.kellogg.northwestern.edu/faculty/gordon_b/files/fb_comparison.pdf",
+    "locator": "Abstract and Study Design and Measurement Approach",
+    "claims": [
+      [["field", "rct", "causal", "empirical", "advertising"], "Fifteen randomized Facebook advertising experiments provide benchmarks for testing observational estimates of campaign lift."]
+    ]
+  },
+  {
+    "doi": "10.1287/mksc.2022.1413",
+    "people": ["brett-r-gordon--stanford", "florian-zettelmeyer--northwestern"],
+    "source": "https://arxiv.org/abs/2201.07055",
+    "locator": "Author manuscript abstract",
+    "aliases": ["10.48550/arxiv.2201.07055"],
+    "claims": [
+      [["ml", "causal_ml", "causal"], "The paper benchmarks double/debiased machine learning and propensity-score matching against experimental estimates. The nonexperimental approaches do not reliably recover the causal effect."],
+      [["field", "rct", "empirical", "advertising"], "The benchmarks come from 663 large Facebook field experiments on actual ad campaigns."]
+    ]
+  },
+  {
+    "doi": "10.1287/mksc.1080.0385",
+    "people": ["z-john-zhang--penn", "jagmohan-raju--penn"],
+    "source": "https://pubsonline.informs.org/doi/10.1287/mksc.1080.0385",
+    "locator": "Publisher abstract and keywords",
+    "claims": [
+      [["analytical", "pricing", "advertising"], "The authors model equilibrium advertising and price competition when advertising shifts preferences between rival brands."],
+      [["lab", "behavioral_experiment", "empirical", "brands"], "A laboratory experiment studies how competing advertisements change brand preferences."]
+    ]
+  },
+  {
+    "doi": "10.1111/j.1530-9134.2009.00239.x",
+    "people": ["anindya-ghose--nyu"],
+    "source": "https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1530-9134.2009.00239.x",
+    "locator": "Publisher abstract",
+    "claims": [
+      [["analytical", "pricing", "targeting"], "A principal–agent model embedded in a differentiated duopoly derives implications of personalized price and quality offers."]
+    ]
+  },
+  {
+    "doi": "10.1093/jcr/ucv098",
+    "people": ["ayelet-fishbach--chicago", "kaitlin-woolley--cornell"],
+    "source": "https://kaitlinwoolleycom.files.wordpress.com/2017/08/woolleyfishbachjcr20161.pdf",
+    "locator": "Study 1 and concluding discussion",
+    "claims": [
+      [["behavioral_experiment", "field", "empirical", "motivation"], "In Study 1, gym users followed instructions emphasizing immediate or delayed rewards and their actual workout persistence was recorded."]
+    ]
+  },
+  {
+    "doi": "10.1509/jmr.10.0353",
+    "people": ["jonah-berger--penn"],
+    "source": "https://jonahberger.com/wp-content/uploads/2013/02/ViralityB.pdf",
+    "locator": "Study 1 and Studies 2a–2c",
+    "claims": [
+      [["observational", "empirical", "sharing"], "Study 1 relates the content of New York Times articles to naturally observed sharing."],
+      [["behavioral_experiment", "causal", "rct"], "In Studies 2a–2c, random assignment to story variants varying in emotional arousal tests their effect on reported sharing intentions."]
+    ]
+  },
+  {
+    "doi": "10.1287/isre.2023.0432",
+    "people": ["anindya-ghose--nyu"],
+    "source": "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4513385",
+    "locator": "Author manuscript abstract",
+    "aliases": ["10.2139/ssrn.4513385"],
+    "claims": [
+      [["ml", "computer_vision", "predictive", "empirical", "retail"], "The paper uses computer vision and deep learning on in-store video to predict purchase decisions."]
+    ]
+  },
+  {
+    "doi": "10.1177/00222437231180171",
+    "people": ["anja-lambrecht--lbs", "xu-zhang--lbs"],
+    "source": "https://journals.sagepub.com/doi/10.1177/00222437231180171",
+    "locator": "Synthetic Difference-in-Differences and table 3",
+    "phase": "expansion_check",
+    "claims": [
+      [["did", "quasi", "reduced_form", "causal", "empirical"], "A regional intervention and synthetic difference-in-differences estimate how TV advertising changes browsing and sales over time."],
+      [["advertising", "platforms"], "The outcomes come from an online travel platform and are linked to TV campaign exposure."]
+    ]
+  },
+  {
+    "doi": "10.1287/mksc.2023.0511",
+    "people": ["xinyu-cao--cuhk"],
+    "source": "https://pubsonline.informs.org/doi/10.1287/mksc.2023.0511",
+    "locator": "Publisher abstract",
+    "phase": "expansion_check",
+    "claims": [
+      [["ml", "causal_ml", "did", "quasi", "causal", "empirical"], "Two deep neural networks are integrated into a difference-in-differences model to estimate heterogeneous effects in matched creator data."],
+      [["platforms", "targeting"], "The application selects creators for a signing program at a video-sharing platform."]
+    ]
+  },
+  {
+    "doi": "10.1287/mksc.2020.1229",
+    "people": ["aurelie-lemmens--erasmus"],
+    "source": "https://pubsonline.informs.org/doi/10.1287/mksc.2020.1229",
+    "locator": "Publisher abstract",
+    "phase": "expansion_check",
+    "claims": [
+      [["predictive", "targeting"], "A profit-weighted loss ranks customers by projected gains from retention offers."],
+      [["field", "empirical"], "Two field experiments compare profitability of retention campaigns built by the proposed model and its alternatives."]
+    ]
+  },
+  {
+    "doi": "10.1177/00222429241307608",
+    "people": ["shan-huang--hku"],
+    "source": "https://journals.sagepub.com/doi/10.1177/00222429241307608",
+    "locator": "Publisher abstract",
+    "phase": "expansion_check",
+    "claims": [
+      [["field", "online", "empirical", "causal", "advertising"], "A field experiment on WeChat and three controlled online studies vary displayed likes and measure responses to social ads."]
+    ]
+  },
+  {
+    "doi": "10.1177/00222437211025054",
+    "people": ["jayson-shi-jia--hku"],
+    "source": "https://journals.sagepub.com/doi/10.1177/00222437211025054",
+    "locator": "Publisher abstract",
+    "phase": "expansion_check",
+    "claims": [
+      [["behavioral_experiment", "field", "lab", "online", "empirical", "causal", "advertising"], "A Facebook Ads field experiment and separate laboratory and online experiments vary the speed of clips to test viewers’ responses."]
+    ]
+  }
+]

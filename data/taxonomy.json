@@ -1,0 +1,53 @@
+{
+  "method": {
+    "structural": "Structural estimation",
+    "demand_estimation": "Structural demand estimation",
+    "analytical": "Analytical modeling / game theory",
+    "behavioral_theory": "Behavioral / conceptual theory",
+    "ml": "Machine learning",
+    "causal_ml": "Causal machine learning",
+    "nlp": "Natural language processing",
+    "computer_vision": "Computer vision",
+    "reduced_form": "Reduced-form econometrics",
+    "behavioral_experiment": "Behavioral experiments",
+    "qualitative": "Qualitative methods",
+    "mixed_methods": "Mixed methods",
+    "meta_analysis": "Meta-analysis"
+  },
+  "objective": {
+    "empirical": "Empirical",
+    "descriptive": "Descriptive empirical",
+    "predictive": "Prediction",
+    "causal": "Causal inference",
+    "counterfactual": "Model-based counterfactuals"
+  },
+  "design": {
+    "field": "Field experiment",
+    "lab": "Laboratory experiment",
+    "online": "Online controlled experiment",
+    "observational": "Observational data",
+    "quasi": "Quasi-experimental design"
+  },
+  "identification": {
+    "rct": "Randomized assignment",
+    "did": "Difference-in-differences",
+    "iv": "Instrumental variables",
+    "rd": "Regression discontinuity",
+    "sc": "Synthetic control"
+  },
+  "topic": {
+    "pricing": "Pricing and promotions",
+    "advertising": "Advertising and measurement",
+    "platforms": "Platforms and digital markets",
+    "retail": "Retail and distribution channels",
+    "brands": "Brands and loyalty",
+    "choice": "Consumer choice and preferences",
+    "search": "Consumer search",
+    "information": "Information disclosure and transparency",
+    "ai": "AI as a research topic",
+    "sharing": "Word of mouth and content sharing",
+    "motivation": "Goals and motivation",
+    "targeting": "Targeting and personalization",
+    "welfare": "Consumer welfare and public policy"
+  }
+}
