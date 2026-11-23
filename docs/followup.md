@@ -27,6 +27,8 @@ Deeper publication checks require that the DOI or citation comes from the listed
 
 The atlas also records a working paper when the work has a titled entry in a publicly posted university or author bibliography, a public CV, or a manuscript with verifiable authorship. CV-only entries link to the listing. A research-method label additionally requires an accessible study description or methods section for that paper.
 
+An ORCID work must match a verified full-name variant in the publisher-registered byline. This check can reject works attached to the correct ORCID through a namesake. When a faculty page supplies a name that is incomplete in the upstream roster, the atlas displays the verified name alongside the upstream name and keeps the existing profile identifier.
+
 ## Rebuild and update
 
 `python scripts/build.py` validates and applies each checked-in batch. The [data tables](https://zyx-dirtystar.github.io/marketing-faculty-atlas/#/coverage) are produced from the same merged data as the profile pages. Python collectors in [scripts](../scripts) use local JSONL caches. The profile reader and public paper reader use Beautiful Soup, and PDF text extraction uses `pdftotext` when available. Keep downloaded source text in the local cache. Source locations, bibliographic metadata, derived claims and access outcomes are the release artifacts.

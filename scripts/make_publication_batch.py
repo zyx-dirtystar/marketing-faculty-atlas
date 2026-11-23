@@ -11,7 +11,7 @@ from apply_followup import PRIMARY
 from followup_http import cache_rows, plain_markup
 from make_method_batch import exact_name, record_names
 from primary_methods import extract
-from sync import ROOT, href, load, orcid_key, save, title_key, url_key
+from sync import ROOT, href, load, orcid_key, save, title_key, url_key, words
 
 TYPES = {"journal-article", "posted-content", "proceedings-article"}
 
@@ -54,11 +54,18 @@ def publication(registry, person, doi, source, method, citation=None):
         return None
     names = record_names(registry)
     accepted = [person["name"], *person.get("publication_aliases", [])]
-    identifier = orcid_key(person.get("orcid"))
-    orcid_match = identifier and sum(orcid_key(row.get("ORCID")) == identifier for row in registry.get("author", [])) == 1
-    if not orcid_match and sum(any(exact_name(name, alias) for alias in accepted) for name in names) != 1:
+    if method == "orcid_works":
+        # A work supplied to a public ORCID can still carry a conflated
+        # authorship. Require a byline matching a verified full name.
+        aliases = {tuple(words(alias)) for alias in accepted}
+        matched = sum(tuple(words(name)) in aliases for name in names)
+    else:
+        matched = sum(any(exact_name(name, alias) for alias in accepted) for name in names)
+    if matched != 1:
         return None
     title = plain_markup(registry["title"][0])
+    if re.match(r"^\s*(?:retracted\b|retraction (?:notice|of|to)\b|withdrawn\b)", title, re.I):
+        return None
     if citation and (len(title_key(title)) < 24 or title_key(title) not in title_key(citation)):
         return None
     date_parts = (registry.get("published") or {}).get("date-parts", [[None]])
@@ -123,9 +130,13 @@ def main():
         local = sources.get(pid, {"sources": [], "dois": {}})
         author = faculty[pid]
         matched = {}
+        linked_sources = {url_key(item["url"]) for item in local["sources"]
+                          if item.get("via") and item["status"] in {"identity_checked", "publication_byline_checked"}
+                          and owner_source(author, item["via"], verified_sources.get(pid, []))}
 
         def trusted(url):
-            return not args.deep or owner_source(author, url, verified_sources.get(pid, []))
+            return (not args.deep or url_key(url) in linked_sources or
+                    owner_source(author, url, verified_sources.get(pid, [])))
 
         def add(row, abstract, evidence_url):
             if not row or not row["listing_url"]:
@@ -188,13 +199,16 @@ def main():
                 known_titles.add(title_key(candidate["title"]))
 
         check_sources = local["sources"] + manual.get(pid, {}).get("sources", [])
+        if args.deep and not check_sources and not matched:
+            continue
         check_sources = [{**item, "status": "identity_unconfirmed"} if
                          item["status"] in {"identity_checked", "publication_byline_checked"} and
                          not trusted(item["url"]) else item for item in check_sources]
         verified = [item for item in check_sources
                     if item["status"] in {"identity_checked", "publication_byline_checked"}]
         checks.append({"person_id": pid, "sources": [
-            {"url": stable_url(item["url"]), "role": item["role"], "status": item["status"]}
+            {"url": stable_url(item["url"]), "role": item["role"], "status": item["status"],
+             **({"via": stable_url(item["via"])} if item.get("via") else {})}
             for item in check_sources if stable_url(item["url"])],
             "state": ("papers_found" if matched or prior[pid] else "profile_read_no_verified_paper" if verified else
                       "sources_inaccessible" if check_sources and all(

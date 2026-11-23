@@ -59,6 +59,12 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
             if orcid_key(faculty[pid]["orcid"]) == identifier:
                 faculty[pid]["identity_correction"] = {"source": row["source"], "note": row["note"]}
                 faculty[pid]["orcid"] = None
+        for row in batch.get("name_verifications", []):
+            pid = row["person_id"]
+            check(pid in deep_publications and row["name"] and href(row["source"]),
+                  f"Invalid verified faculty name: {pid}")
+            faculty[pid].setdefault("upstream_name", faculty[pid]["name"])
+            faculty[pid].update({"name": row["name"], "name_source": row["source"]})
         for row in batch.get("author_sources", []):
             pid = row["person_id"]
             check(pid in deep_methods, f"Source is outside the deeper methods review: {pid}")
@@ -218,10 +224,10 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
                                                if pid in missing and "followup_batch" in link),
     }
     if deep_plan:
-        publication_statuses = defaultdict(set)
+        deep_publication_links = defaultdict(set)
         for (pid, wid), link in links.items():
             if pid in deep_publications and "followup_batch" in link:
-                publication_statuses[pid].add(works[wid]["status"])
+                deep_publication_links[pid].add(wid)
         report["deep_review"] = {
             "baseline": deep_plan["baseline"],
             "method_faculty": len(deep_methods),
@@ -235,7 +241,10 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
             "publication_faculty": len(deep_publications),
             "publication_searches": sum(searches.get(pid, {}).get("deep_review", False) for pid in deep_publications),
             "faculty_with_papers": sum(pid in publication_counts for pid in deep_publications),
-            "working_papers_only": sum(statuses == {"wp"} for statuses in publication_statuses.values()),
+            "working_papers_only": sum({works[wid]["status"] for wid in ids} == {"wp"}
+                                       for ids in deep_publication_links.values()),
+            "publication_links_found": sum(map(len, deep_publication_links.values())),
+            "distinct_works_found": len({wid for ids in deep_publication_links.values() for wid in ids}),
             "publication_outcomes": Counter(row["state"] for row in rows if row["person_id"] in deep_publications),
         }
     return report, rows + list(checks.values()) + [

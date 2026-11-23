@@ -216,6 +216,8 @@ async function profile(id, params, request) {
       <h1>${escape(person.name)}</h1>
       <p>${escape(person.title || person.rank)} · ${escape(data.schools[person.school].name)}</p>
       <p>${escape(person.unit)} · ${escape(person.primary_fields.join(" · "))}</p>
+      ${person.name_source ? `<small>Listed in Econ Atlas as ${escape(person.upstream_name)}.
+        ${link(person.name_source, "Verified faculty name")}</small>` : ""}
       <div class="links">${link(person.upstream_url, "Econ Atlas")}${Object.entries(person.links).map(([key, url]) => link(url, sources[key] || key)).join("")}</div>
     </section>
     <div class="profile-grid">

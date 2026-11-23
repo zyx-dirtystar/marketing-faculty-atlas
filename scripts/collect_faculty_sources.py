@@ -213,20 +213,23 @@ class FacultySources:
         links = [(role, sources.get(key)) for role, key in (
             ("profile", "profile_url"), ("home", "homepage_url"), ("cv", "cv_url"))]
         links = self.extra_sources.get(pid, []) + links
+        links = [(role, url, None) for role, url in links]
         attempted, found = [], defaultdict(list)
         seen = set()
         position = 0
         while position < len(links) and len(seen) < (13 if self.deep else 9):
-            role, url = links[position]
+            role, url, origin = links[position]
             position += 1
             if not url or not allowed(url) or url_key(url) in seen:
                 continue
             seen.add(url_key(url))
             result, inferred = self.read_page(url, role, names)
+            if self.deep and origin:
+                result["via"] = origin
             attempted.append(result)
             for doi in result["dois"]:
                 found[doi].append(result["url"])
-            links.extend(inferred)
+            links.extend((kind, destination, origin or result["url"]) for kind, destination in inferred)
         if not any(item["status"] == "identity_checked" for item in attempted) and sources.get("source_url"):
             result, from_directory = self.read_page(sources["source_url"], "directory", names)
             attempted.append(result)
