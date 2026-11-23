@@ -92,6 +92,7 @@ test("published follow-up reconciles the two fixed cohorts and preserves evidenc
 test("deeper review preserves the cohorts, working papers and negative authorship decisions", () => {
   const report = audit.followup.deep_review;
   assert.equal(report.method_faculty, 84);
+  assert.equal(report.methods_supported, report.method_faculty);
   assert.equal(report.publication_faculty, 270);
   assert.equal(report.publication_searches, report.publication_faculty);
   const emil = people.find((row) => row.id === "emil-palikot--northeastern");
@@ -110,4 +111,9 @@ test("deeper review preserves the cohorts, working papers and negative authorshi
   assert(drafts.length >= 2);
   assert.equal(ids(drafts).size, drafts.length);
   assert(drafts.every((paper) => paper.status === "wp"));
+  const noelle = people.find((row) => row.id === "noelle-nelson--oregon");
+  const recovered = load(`people/${noelle.school}.json`)[noelle.id].papers
+    .find((paper) => paper.id === "work:68f74c48962051e91228d81f");
+  assert.equal(recovered.doi, "10.1093/jcr/ucx056");
+  assert.equal(recovered.title_check.state, "exact_title_byline");
 });

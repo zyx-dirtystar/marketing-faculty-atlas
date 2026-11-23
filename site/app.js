@@ -178,6 +178,9 @@ function paperCard(paper, tag) {
     ${paper.fulltext_check ? `<details><summary>Full-text search</summary><p>
       ${link(paper.fulltext_check.source, paper.fulltext_check.state === "fulltext_read" ? "Public methods text read" : "Full text unavailable")}
       · ${format(paper.fulltext_check.attempts.length)} source attempts</p></details>` : ""}
+    ${paper.title_check ? `<details><summary>Paper title search</summary><p>
+      ${link(paper.title_check.source, paper.title_check.doi ? "DOI verified with title and byline" :
+        paper.title_check.state.replaceAll("_", " "))}</p></details>` : ""}
     ${paper.method_corrections?.length ? `<details><summary>Method corrections</summary><ul>
       ${paper.method_corrections.map((row) => `<li>${escape(row.note)} ${link(row.source, "Source")}</li>`).join("")}</ul></details>` : ""}
     ${paper.versions.length > 1 ? `<details><summary>${paper.versions.length} source records</summary><ul>${paper.versions.map((v) =>
@@ -294,6 +297,8 @@ function coverage() {
       ${report.followup.deep_review ? `<h3>Deeper follow-up</h3>
       <p>${format(report.followup.deep_review.methods_supported)} of ${format(report.followup.deep_review.method_faculty)} remaining method profiles now have evidence.
       ${format(report.followup.deep_review.fulltexts_read)} full texts read from ${format(report.followup.deep_review.fulltext_searches)} paper searches.</p>
+      ${report.followup.deep_review.title_searches ? `<p>${format(report.followup.deep_review.titles_with_verified_doi)}
+        DOI matches from ${format(report.followup.deep_review.title_searches)} additional title searches.</p>` : ""}
       <p>${format(report.followup.deep_review.publication_searches)} of ${format(report.followup.deep_review.publication_faculty)} additional publication searches logged.
       ${format(report.followup.deep_review.faculty_with_papers)} faculty now have linked works.
       ${report.followup.deep_review.working_papers_only ? `${format(report.followup.deep_review.working_papers_only)} currently have working papers only.` : ""}</p>` : ""}

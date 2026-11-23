@@ -43,7 +43,7 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
     links = {(row["person_id"], row["paper_id"]): row for row in authors}
     by_person = defaultdict(dict)
     checks, searches, tested = {}, {}, {}
-    author_sources, fulltext_checks = {}, {}
+    author_sources, fulltext_checks, title_checks = {}, {}, {}
     corrections = defaultdict(dict)
     batches = []
     tags = {tag for group in taxonomy.values() for tag in group}
@@ -72,6 +72,18 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
                         for item in [*previous.get("attempts", []), *row.get("attempts", [])]}
             fulltext_checks[wid] = {**best, "checked_at": date, "batch": path.stem,
                                     "attempts": list(attempts.values())}
+        for row in batch.get("title_checks", []):
+            wid = row["paper_id"]
+            check(wid in deep_queue and wid.startswith("work:") and href(row["source"]),
+                  f"Invalid title search: {wid}")
+            title_checks[wid] = {**row, "checked_at": date, "batch": path.stem}
+            if doi := row.get("doi"):
+                check(row["state"] == "exact_title_byline" and doi.startswith("10.") and
+                      row["source"] == "https://doi.org/" + doi, f"Invalid DOI for {wid}")
+                paper = works[wid]
+                paper.update({"doi": doi, "url": row["source"], "doi_provenance": "registry_title_byline"})
+                if not paper["year"] and row.get("year"):
+                    paper["year"] = row["year"]
         for item in batch.get("papers", []):
             wid = item["paper_id"]
             check(wid in queue, f"Paper outside fixed cohort: {wid}")
@@ -145,6 +157,8 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
         works[wid]["followup_check"] = row
     for wid, row in fulltext_checks.items():
         works[wid]["fulltext_check"] = row
+    for wid, row in title_checks.items():
+        works[wid]["title_check"] = row
     for wid, tags_removed in corrections.items():
         works[wid]["method_corrections"] = list(tags_removed.values())
     evidence[:] = [row for row in [*evidence, *tested.values()]
@@ -212,6 +226,8 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
             "baseline": deep_plan["baseline"],
             "method_faculty": len(deep_methods),
             "fulltext_searches": len(fulltext_checks),
+            "title_searches": len(title_checks),
+            "titles_with_verified_doi": sum(row.get("doi") is not None for row in title_checks.values()),
             "fulltexts_read": sum(row["state"] == "fulltext_read" for row in fulltext_checks.values()),
             "author_profiles_checked": len(author_sources),
             "methods_supported": len((reviewed_people | fulltext_people | primary_people) & set(deep_methods)),
@@ -222,5 +238,6 @@ def merge_followups(faculty, works, authors, evidence, taxonomy):
             "working_papers_only": sum(statuses == {"wp"} for statuses in publication_statuses.values()),
             "publication_outcomes": Counter(row["state"] for row in rows if row["person_id"] in deep_publications),
         }
-    return report, rows + list(checks.values()) + [{**row, "check_kind": "fulltext"}
-                                                  for row in fulltext_checks.values()]
+    return report, rows + list(checks.values()) + [
+        {**row, "check_kind": kind} for kind, records in (("fulltext", fulltext_checks), ("title", title_checks))
+        for row in records.values()]
